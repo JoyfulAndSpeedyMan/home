@@ -14,7 +14,6 @@ import java.awt.image.Kernel;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
 import java.util.*;
@@ -76,8 +75,11 @@ public class WeChatRecordsGenerate {
 
     private int curFileIndex = 0;
 
-    public WeChatRecordsGenerate(Iterator<String> dataIter, File outDir) {
+    private String time;
+
+    public WeChatRecordsGenerate(Iterator<String> dataIter, String time, File outDir) {
         this.dataIter = dataIter;
+        this.time = time;
         this.outDir = outDir;
     }
 
@@ -93,32 +95,43 @@ public class WeChatRecordsGenerate {
             if (StringUtils.isNotBlank(s)) {
 //                System.out.println(s);
                 list.add(s);
+                i++;
+                if (i >= 4) {
+                    break;
+                }
             }
-            i++;
-//            if (i >= 4) {
-//                break;
-//            }
         }
         Iterator<String> iter = list.iterator();
-        WeChatRecordsGenerate generate = new WeChatRecordsGenerate(iter, new File("target/chatTest"));
+        WeChatRecordsGenerate generate = new WeChatRecordsGenerate(iter, "10月31日 00:57",new File("target/chatTest"));
         generate.run();
     }
 
     @SneakyThrows
     public void init() {
-        newImg();
+        if (textFont == null) {
+//            try {
+//                InputStream in = this.getClass().getResourceAsStream("/SourceHanSansSC-Normal-2.otf");
+//                Font font = Font.createFont(Font.TRUETYPE_FONT, in);
+//                textFont = font.deriveFont(Font.PLAIN, (float) (width * 0.045));
+//            } catch (Exception e) {
+//                throw new RuntimeException(e);
+//            }
+            textFont = new Font("微软雅黑", Font.PLAIN, (int) (width * 0.045));
+        }
         youAvatar = ImageIO.read(new File("you.jpg"));
         meAvatar = ImageIO.read(new File("me.jpg"));
         outDir.mkdirs();
         result = new BufferedImage(width, height, imgType);
+        newImg();
     }
 
     public void run() {
         this.init();
-        drawBackground();
+        fillBackground();
         setStartLineAt();
 
-        drawMeChatLine("你听说过什么恐怖故事？aaa");
+        drawMeChatLine("你听说过什么恐怖故事？");
+        drawTimeLine();
         while (dataIter.hasNext()) {
             drawYouChatLine(dataIter.next());
         }
@@ -131,21 +144,33 @@ public class WeChatRecordsGenerate {
         baseWritePoint = 118 - marginTopWithPreRecord;
     }
 
-    public void drawBackground() {
+
+    public void fillBackground() {
         graph2D.setColor(backgroundColor);
         graph2D.fillRect(0, 0, width, height);
     }
 
+    public void drawTimeLine(){
+        Font font = textFont.deriveFont(Font.PLAIN, (float) (width * 0.03));
+        TextLayout textLayout = new TextLayout(time, font, graph2D.getFontRenderContext());
+        double w = textLayout.getBounds().getWidth();
+        float x = (float) (width / 2 - w / 2);
+        float y = baseWritePoint + marginTopWithPreRecord + textLayout.getAscent();
+        graph2D.setColor(new Color(141, 140, 150));
+        textLayout.draw(graph2D, x, y);
+        baseWritePoint = (int) (y + textLayout.getDescent());
+    }
+
     public void drawMeChatLine(String msg) {
-        int baseY = baseWritePoint;
+        int baseY = baseWritePoint + marginTopWithPreRecord;
         int bottom = drawMeChatBox(baseY, msg);
-        baseWritePoint = bottom + marginTopWithPreRecord;
+        baseWritePoint = bottom;
     }
 
     public void drawYouChatLine(String msg) {
-        int baseY = baseWritePoint;
+        int baseY = baseWritePoint + marginTopWithPreRecord;
         int bottom = drawYouChatBox(baseY, msg);
-        baseWritePoint = bottom + marginTopWithPreRecord;
+        baseWritePoint = bottom;
     }
 
     private void drawMeAvatar(int baseY) {
@@ -284,20 +309,10 @@ public class WeChatRecordsGenerate {
         graph2D.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_DEFAULT);
         clip = new Rectangle2D.Double(0, 0, width, height);
         graph2D.setClip(clip);
-        if (textFont == null) {
-            try {
-                InputStream in = this.getClass().getResourceAsStream("/SourceHanSansSC-Normal-2.otf");
-                Font font = Font.createFont(Font.TRUETYPE_FONT, in);
-                textFont = font.deriveFont(Font.PLAIN, (float) (width * 0.045));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-//        textFont = new Font("微软雅黑", Font.PLAIN, 45);
-        }
         graph2D.setFont(textFont);
 
         setStartLineAt();
-        drawBackground();
+        fillBackground();
     }
 
     public void save() {
@@ -323,7 +338,7 @@ public class WeChatRecordsGenerate {
 
     private void collectOne() {
         int height = 0;
-        int slot = (int) (width * 0.005);
+        int slot = (int) (width * 0.002);
         for (BufferedImage bufferedImage : results) {
             height += bufferedImage.getHeight();
             height += slot;
@@ -331,12 +346,14 @@ public class WeChatRecordsGenerate {
         height -= slot;
         BufferedImage result = new BufferedImage(width, height, imgType);
         Graphics2D g = result.createGraphics();
+        g.setColor(new Color(211, 211, 211));
         int y = 0;
         for (int i = 0; i < results.size(); i++) {
             BufferedImage img = results.get(i);
             g.drawImage(img, 0, y, img.getWidth(), img.getHeight(), null);
             if (i != results.size() - 1) {
                 y += img.getHeight();
+                g.fillRect(0, y, img.getWidth(), slot);
                 y += slot;
             }
         }
