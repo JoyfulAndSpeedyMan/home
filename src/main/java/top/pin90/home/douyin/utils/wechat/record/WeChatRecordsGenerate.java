@@ -309,8 +309,8 @@ public class WeChatRecordsGenerate {
                 if (StringUtils.isBlank(config.getOutConfig().getOutAllImgDir())) {
                     throw new RuntimeException("没有输出位置");
                 }
-                ImageIO.write(result, "png",
-                        new File(classpath + File.separator + config.getOutConfig().getOutAllImgDir() + File.separator + "result.png"));
+                File file = new File(config.getOutConfig().getOutAllImgDir() + File.separator + "result.png");
+                ImageIO.write(result, "png", file);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
