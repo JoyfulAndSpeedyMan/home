@@ -48,7 +48,7 @@ public class WechatRecordGenerateConfig implements Serializable {
         config.setDataConfig(dataConfig);
         config.setOutConfig(new OutConfig("target/result.png"));
         config.setBackgroundConfig(new BackgroundConfig());
-        config.setMeChatConfig(new ChatConfig(ChatConfig.MY_AVATAR));
+        config.setMeChatConfig(new ChatConfig(ChatConfig.MY_AVATAR, new Color(137, 217, 97), Color.BLACK));
         config.setYouChatConfig(new ChatConfig(ChatConfig.YOU_AVATAR));
         config.setDrawConfig(new DrawConfig());
         return config;
@@ -103,8 +103,6 @@ public class WechatRecordGenerateConfig implements Serializable {
 
     @Getter
     @Setter
-    @AllArgsConstructor
-    @NoArgsConstructor
     @SuperBuilder
     @ToString
     public static class ChatConfig implements Serializable {
@@ -130,15 +128,25 @@ public class WechatRecordGenerateConfig implements Serializable {
                 throw new RuntimeException(e);
             }
         }
+        private Image avatar;
 
         private Color boxColor = Color.BLACK;
 
-        private Color textColor = Color.BLACK;
-
-        private Image avatar;
+        private Color textColor = Color.WHITE;
 
         public ChatConfig(Image avatar) {
             this.avatar = avatar;
+        }
+
+        public ChatConfig(Image avatar, Color boxColor) {
+            this.avatar = avatar;
+            this.boxColor = boxColor;
+        }
+
+        public ChatConfig(Image avatar, Color boxColor, Color textColor) {
+            this.avatar = avatar;
+            this.boxColor = boxColor;
+            this.textColor = textColor;
         }
     }
 

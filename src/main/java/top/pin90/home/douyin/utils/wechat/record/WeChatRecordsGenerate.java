@@ -77,9 +77,16 @@ public class WeChatRecordsGenerate {
 
         drawMeChatLine("你听说过什么恐怖故事？");
         drawTimeLine();
-//        while (dataIter.hasNext()) {
-//            drawYouChatLine(dataIter.next());
-//        }
+        WechatRecordGenerateConfig.DataConfig dataConfig = config.getDataConfig();
+        Iterator<WechatRecordGenerateConfig.DateRecord> dataIter = dataConfig.getDataIter();
+        while (dataIter.hasNext()) {
+            WechatRecordGenerateConfig.DateRecord next = dataIter.next();
+            if(next.getOid() == WechatRecordGenerateConfig.DateRecord.YOU_OID) {
+                drawYouChatLine(next.getMsg());
+            } else if(next.getOid() == WechatRecordGenerateConfig.DateRecord.ME_OID){
+                drawMeChatLine(next.getMsg());
+            }
+        }
         save();
         collectOne();
 
