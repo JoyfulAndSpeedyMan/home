@@ -1,6 +1,5 @@
 package top.pin90.home.douyin.utils.wechat.record;
 
-import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 import top.pin90.home.douyin.utils.wechat.record.config.WechatRecordGenerateConfig;
 
@@ -55,11 +54,8 @@ public class WeChatRecordsGenerate {
         generate.run();
     }
 
-    @SneakyThrows
     public void init() {
         WechatRecordGenerateConfig.DrawConfig drawConfig = config.getDrawConfig();
-
-
         textFont = config.getDrawConfig().getTextFont();
         if (StringUtils.isNotBlank(config.getOutConfig().getOutAllImgDir())) {
             File file = new File(config.getOutConfig().getOutAllImgDir());
