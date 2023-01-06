@@ -1,9 +1,9 @@
 server:
-  tomcat:
-    max-connections: 8192
+  port: 8080
 logging:
   pattern:
     console: '%d{yyyy-MM-dd-HH:mm:ss} [%thread] %-5level %logger- %msg%n'
+
   level:
     web: info
     root: info

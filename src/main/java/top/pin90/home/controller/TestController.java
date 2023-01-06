@@ -20,38 +20,14 @@ public class TestController {
     }
 
     @GetMapping("/currentTime")
-    public String currentTime() {
-        try {
-            Thread.sleep(300);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+    public String currentTime(int s) {
+        if(s > 0) {
+            try {
+                Thread.sleep(s);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
-        long time = System.currentTimeMillis();
-//        Thread thread = Thread.currentThread();
-//        List<Thread> vtList = null;
-//        try {
-//            Field containerField = Thread.class.getDeclaredField("container");
-//            Field carrierThreadField = thread.getClass().getDeclaredField("carrierThread");
-//            containerField.setAccessible(true);
-//            carrierThreadField.setAccessible(true);
-//            ThreadContainer container = (ThreadContainer) containerField.get(thread);
-//            Thread carrierThread = (Thread) carrierThreadField.get(thread);
-//            Method threadStateMethod = Thread.class.getDeclaredMethod("threadState");
-//            threadStateMethod.setAccessible(true);
-////            Thread.State invoke = (Thread.State) threadStateMethod.invoke(carrierThread);
-//            vtList = container.threads().collect(Collectors.toList());
-//
-//            HashMap<Thread.State, Integer> count = new HashMap<>();
-//
-//            for (Thread vt : vtList) {
-//                Thread.State state = (Thread.State) threadStateMethod.invoke(vt);
-//                count.compute(state, (k, v) -> v == null ? 0 : v + 1);
-//            }
-//            log.info("currentTime time {} count {} --- t {}  ------ vtList {}", time, count, thread, vtList);
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-//        log.info("currentTime time {} count {} t {}", time, count.getAndIncrement(), thread);
-        return time + "";
+        return System.currentTimeMillis() + "";
     }
 }
