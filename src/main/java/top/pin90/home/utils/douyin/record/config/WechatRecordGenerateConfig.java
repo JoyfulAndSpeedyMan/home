@@ -1,4 +1,4 @@
-package top.pin90.home.douyin.utils.wechat.record.config;
+package top.pin90.home.utils.douyin.record.config;
 
 import lombok.*;
 import lombok.experimental.SuperBuilder;

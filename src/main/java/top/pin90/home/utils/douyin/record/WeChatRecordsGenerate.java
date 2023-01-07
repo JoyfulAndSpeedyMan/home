@@ -1,7 +1,7 @@
-package top.pin90.home.douyin.utils.wechat.record;
+package top.pin90.home.utils.douyin.record;
 
 import org.apache.commons.lang3.StringUtils;
-import top.pin90.home.douyin.utils.wechat.record.config.WechatRecordGenerateConfig;
+import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
