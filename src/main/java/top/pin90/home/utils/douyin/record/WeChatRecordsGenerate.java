@@ -79,11 +79,11 @@ public class WeChatRecordsGenerate {
         Iterator<WechatRecordGenerateConfig.DateRecord> dataIter = dataConfig.getDataIter();
         while (dataIter.hasNext()) {
             WechatRecordGenerateConfig.DateRecord next = dataIter.next();
-            if(next.getOid() == WechatRecordGenerateConfig.DateRecord.YOU_OID) {
+            if(next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.YOU) {
                 drawYouChatLine(next.getMsg());
-            } else if(next.getOid() == WechatRecordGenerateConfig.DateRecord.ME_OID){
+            } else if(next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.ME){
                 drawMeChatLine(next.getMsg());
-            } else if(next.getOid() == WechatRecordGenerateConfig.DateRecord.TIME_LINE){
+            } else if(next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.TIME_LINE){
                 drawTimeLine(next.getMsg());
             }
         }

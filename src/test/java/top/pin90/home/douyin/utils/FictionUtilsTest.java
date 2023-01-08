@@ -11,10 +11,6 @@ import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,10 +58,10 @@ public class FictionUtilsTest {
         log.info("文本处理完成, 共{}条，limit {}，开始自定义文本", resultList.size(), limit);
 
         List<WechatRecordGenerateConfig.DateRecord> allData = new ArrayList<>();
-        allData.add(new WechatRecordGenerateConfig.DateRecord(ME_OID, "你们学校发生过什么惊悚的事情"));
+        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "你们学校发生过什么惊悚的事情"));
         allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "2023年 12月31日 23:56"));
         for (String msg : resultList) {
-            allData.add(new WechatRecordGenerateConfig.DateRecord(YOU_OID, msg));
+            allData.add(new WechatRecordGenerateConfig.DateRecord(YOU, msg));
         }
 
         log.info("自定义文本完成, 共{}条，开始生成图片", allData.size());

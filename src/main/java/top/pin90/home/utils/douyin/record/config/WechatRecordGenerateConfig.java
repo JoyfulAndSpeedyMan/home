@@ -5,7 +5,6 @@ import lombok.experimental.SuperBuilder;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.font.TextAttribute;
 import java.io.*;
 import java.util.*;
 
@@ -29,12 +28,12 @@ public class WechatRecordGenerateConfig implements Serializable {
 
 
     public static DataConfig exampleData() {
-        DateRecord me1 = new DateRecord(DateRecord.ME_OID, "你好");
+        DateRecord me1 = new DateRecord(DateRecord.ME, "你好");
         DateRecord timeLine = new DateRecord(DateRecord.TIME_LINE, "10月31日 00:57");
-        DateRecord y1 = new DateRecord(DateRecord.YOU_OID, "你好");
-        DateRecord y2 = new DateRecord(DateRecord.YOU_OID, "查寝的人会用各种方式让你开门");
-        DateRecord y3 = new DateRecord(DateRecord.YOU_OID, "不要开灯不要开窗不要拉开窗帘不要开灯不要开窗不要拉开窗帘");
-        DateRecord me2 = new DateRecord(DateRecord.ME_OID, "卫生间伐uebfueyw瑟瑟发抖发·17");
+        DateRecord y1 = new DateRecord(DateRecord.YOU, "你好");
+        DateRecord y2 = new DateRecord(DateRecord.YOU, "查寝的人会用各种方式让你开门");
+        DateRecord y3 = new DateRecord(DateRecord.YOU, "不要开灯不要开窗不要拉开窗帘不要开灯不要开窗不要拉开窗帘");
+        DateRecord me2 = new DateRecord(DateRecord.ME, "卫生间伐uebfueyw瑟瑟发抖发·17");
         return DataConfig.builder()
                 .dataIter(Arrays.asList(me1, timeLine, y1, y2, y3, me2).iterator())
                 .build();
@@ -86,15 +85,15 @@ public class WechatRecordGenerateConfig implements Serializable {
 
         public final static int TIME_LINE = 0;
 
-        public final static int ME_OID = 1;
+        public final static int ME = 1;
 
-        public final static int YOU_OID = 2;
+        public final static int YOU = 2;
 
 
         /**
          * 发言者id
          */
-        private int oid = -1;
+        private int speakerId = -1;
 
         private String msg;
     }
