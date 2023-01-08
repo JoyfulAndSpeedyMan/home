@@ -1,5 +1,6 @@
 package top.pin90.home.utils.douyin.record;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig;
 
@@ -16,6 +17,7 @@ import java.text.AttributedString;
 import java.util.*;
 import java.util.List;
 
+@Slf4j
 public class WeChatRecordsGenerate {
 
     private int imgType = BufferedImage.TYPE_INT_ARGB;
@@ -106,7 +108,7 @@ public class WeChatRecordsGenerate {
         double w = textLayout.getBounds().getWidth();
         float x = (float) (config.getDrawConfig().getWidth() / 2 - w / 2);
         float y = baseWritePoint + drawConfig.getMarginTopWithPreRecord() + textLayout.getAscent();
-        graph2D.setColor(new Color(141, 140, 150));
+        graph2D.setColor(new Color(88, 88, 88));
         textLayout.draw(graph2D, x, y);
         baseWritePoint = (int) (y + textLayout.getDescent());
     }
@@ -232,7 +234,7 @@ public class WeChatRecordsGenerate {
     public int drawMsg(int boxX, int boxY, double w, String msg, boolean draw) {
         AttributedString text = new AttributedString(msg);
         text.addAttribute(TextAttribute.FONT, textFont, 0, msg.length());
-        text.addAttribute(TextAttribute.WIDTH, TextAttribute.WIDTH_CONDENSED, 0, msg.length());
+        text.addAttribute(TextAttribute.KERNING, TextAttribute.KERNING_ON, 0, msg.length());
 
         AttributedCharacterIterator iterator = text.getIterator();
         FontRenderContext frc = graph2D.getFontRenderContext();
@@ -266,14 +268,9 @@ public class WeChatRecordsGenerate {
                 if(debug) {
                     int ty = (int) (y - (layout.getAscent()));
                     Color bc = graph2D.getColor();
-
-//                    graph2D.setColor(Color.WHITE);
-//                    graph2D.drawRect(x, ty, (int) bounds.getWidth(), (int) (bounds.getHeight() + layout.getDescent()));
-
                     Rectangle pixelBounds = layout.getPixelBounds(null, x, y);
                     graph2D.setColor(Color.ORANGE);
                     graph2D.drawRect(x, ty, (int) pixelBounds.getWidth() + 3, (int) (pixelBounds.getHeight() + layout.getDescent()));
-//            layout.getBlackBoxBounds()
                     graph2D.setColor(bc);
                 }
             }
@@ -311,6 +308,7 @@ public class WeChatRecordsGenerate {
     }
 
     private void collectOne() {
+        log.info("图片生成完成，开始整合图片");
         int height = 0;
         int slot = (int) (config.getDrawConfig().getWidth() * 0.002);
         for (BufferedImage bufferedImage : results) {
@@ -332,12 +330,14 @@ public class WeChatRecordsGenerate {
             }
         }
         this.result = result;
+        log.info("图片整合完成，准备写入文件");
         try {
-            String classpath = this.getClass().getResource("/").getFile();
             if (StringUtils.isNotBlank(config.getOutConfig().getOutFile())) {
 //                File file = new File(classpath + File.separator + config.getOutConfig().getOutFile());
                 File file = new File(config.getOutConfig().getOutFile());
+                log.info("文件将写入到 {}",file.getAbsolutePath());
                 ImageIO.write(result, config.getOutConfig().getFileFormat(), file);
+                log.info("文件将写入完成");
             } else {
                 if (StringUtils.isBlank(config.getOutConfig().getOutAllImgDir())) {
                     throw new RuntimeException("没有输出位置");

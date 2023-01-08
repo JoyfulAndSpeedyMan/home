@@ -43,7 +43,12 @@ public class FictionUtils {
         return result;
     }
 
+
     public List<String> readlineFromUrl(String url) {
+        return readlineFromUrl(url, null);
+    }
+
+    public List<String> readlineFromUrl(String url, Integer lineLimit) {
         RestTemplate restTemplate = RestTemplateManager.getInstance();
         ResponseEntity<String> entity = restTemplate.getForEntity(url, String.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
@@ -62,20 +67,33 @@ public class FictionUtils {
 
         Elements children = div.children();
         ArrayList<String> list = new ArrayList<>(children.size());
+        int count = 0;
         for (Element p : children) {
+            if (lineLimit != null && count >= lineLimit) {
+                break;
+            }
             list.add(p.text());
+            count++;
         }
         return list;
+    }
+
+    public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction, boolean saveNumberLineText) {
+        return this.resolveLineList(lines, sensitiveWordFunction, saveNumberLineText, null);
     }
 
     /**
      * @param lines 要处理的行
      * @return 处理后的新行
      */
-    public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction, boolean saveNumberLineText) {
+    public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction, boolean saveNumberLineText, Integer lineLimit) {
         LinkedList<String> resultList = new LinkedList<>();
 
         for (String line : lines) {
+            if (lineLimit != null && lineLimit <= resultList.size()) {
+                log.info("lineLimit {} return", lineLimit);
+                return resultList;
+            }
             if (StringUtils.isBlank(line))
                 continue;
             Pair<Boolean, String> detectNumberLine = detectNumberLine(line);
@@ -86,22 +104,29 @@ public class FictionUtils {
                     String t = detectNumberLine.getRight();
                     // 有需要的值才保留，其他时候直接删了
                     if (StringUtils.isNotBlank(t)) {
-                        addToResultList(t, sensitiveWordFunction, resultList);
+                        addToResultList(t, sensitiveWordFunction, resultList, lineLimit);
                     }
                 }
             } else {
-                addToResultList(line, sensitiveWordFunction, resultList);
+                addToResultList(line, sensitiveWordFunction, resultList, lineLimit);
             }
         }
         return resultList;
     }
 
-    private void addToResultList(String text, Function<String, String> sensitiveWordFunction, List<String> resultList) {
+
+    private void addToResultList(String text, Function<String, String> sensitiveWordFunction, List<String> resultList, Integer lineLimit) {
         String noSymbol = this.replaceSymbol(text);
         String noSensitive = sensitiveWordFunction.apply(noSymbol);
         Pair<Boolean, List<String>> detectSplit = detectSplit(noSensitive);
         if (detectSplit.getLeft()) {
-            resultList.addAll(detectSplit.getRight());
+            for (String s : detectSplit.getRight()) {
+                resultList.add(s);
+                if (lineLimit != null && lineLimit <= resultList.size()) {
+                    log.info("lineLimit {} return", lineLimit);
+                    return;
+                }
+            }
         } else {
             resultList.add(noSensitive);
         }
@@ -117,7 +142,7 @@ public class FictionUtils {
         outer:
         while (i < text.length()) {
             for (int l = 0; l < splitNewLineSymbol.size(); l++) {
-                if(countNo == splitNewLineSymbol.size()){
+                if (countNo == splitNewLineSymbol.size()) {
                     break outer;
                 }
                 if (!flags[l]) {

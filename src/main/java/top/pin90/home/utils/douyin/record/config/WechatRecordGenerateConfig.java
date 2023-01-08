@@ -5,12 +5,14 @@ import lombok.experimental.SuperBuilder;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.font.TextAttribute;
 import java.io.*;
 import java.util.*;
 
 @Data
 public class WechatRecordGenerateConfig implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = -3440548284519506482L;
 
     private DataConfig dataConfig;
@@ -27,13 +29,14 @@ public class WechatRecordGenerateConfig implements Serializable {
 
 
     public static DataConfig exampleData() {
-        DateRecord me = new DateRecord(DateRecord.ME_OID, "你好");
+        DateRecord me1 = new DateRecord(DateRecord.ME_OID, "你好");
         DateRecord timeLine = new DateRecord(DateRecord.TIME_LINE, "10月31日 00:57");
         DateRecord y1 = new DateRecord(DateRecord.YOU_OID, "你好");
         DateRecord y2 = new DateRecord(DateRecord.YOU_OID, "查寝的人会用各种方式让你开门");
         DateRecord y3 = new DateRecord(DateRecord.YOU_OID, "不要开灯不要开窗不要拉开窗帘不要开灯不要开窗不要拉开窗帘");
+        DateRecord me2 = new DateRecord(DateRecord.ME_OID, "卫生间伐uebfueyw瑟瑟发抖发·17");
         return DataConfig.builder()
-                .dataIter(Arrays.asList(me, timeLine, y1, y2, y3).iterator())
+                .dataIter(Arrays.asList(me1, timeLine, y1, y2, y3, me2).iterator())
                 .build();
     }
 
@@ -57,7 +60,7 @@ public class WechatRecordGenerateConfig implements Serializable {
                 new Color(44, 44, 44),
                 new Color(213, 213, 213))
         );
-        config.setDrawConfig(new DrawConfig(1000, 1500));
+        config.setDrawConfig(new DrawConfig(1000, 5000));
         return config;
     }
 
@@ -220,6 +223,9 @@ public class WechatRecordGenerateConfig implements Serializable {
 
             avatarSize = (int) (115);
             textFont = new Font("微软雅黑", Font.PLAIN, (int) (avatarSize * 0.4));
+//            Map<TextAttribute, Object> map = new Hashtable<TextAttribute, Object>();
+//            map.put(TextAttribute.KERNING, TextAttribute.KERNING_ON);
+//            textFont = textFont.deriveFont(map);
             chatMsgBoxPadding = (int) (avatarSize * 0.26);
             tagD = (int) (width * 0.014);
             chatBoxMaxWidth = width * 0.7;
