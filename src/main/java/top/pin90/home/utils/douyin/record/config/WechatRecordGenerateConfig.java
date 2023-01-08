@@ -7,6 +7,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.io.*;
 import java.util.*;
+import java.util.List;
 
 @Data
 public class WechatRecordGenerateConfig implements Serializable {
@@ -26,16 +27,21 @@ public class WechatRecordGenerateConfig implements Serializable {
 
     private DrawConfig drawConfig;
 
+    private static Iterator<DateRecord> exampleDataIter = null;
 
-    public static DataConfig exampleData() {
+    static {
         DateRecord me1 = new DateRecord(DateRecord.ME, "你好");
         DateRecord timeLine = new DateRecord(DateRecord.TIME_LINE, "10月31日 00:57");
         DateRecord y1 = new DateRecord(DateRecord.YOU, "你好");
         DateRecord y2 = new DateRecord(DateRecord.YOU, "查寝的人会用各种方式让你开门");
         DateRecord y3 = new DateRecord(DateRecord.YOU, "不要开灯不要开窗不要拉开窗帘不要开灯不要开窗不要拉开窗帘");
         DateRecord me2 = new DateRecord(DateRecord.ME, "卫生间伐uebfueyw瑟瑟发抖发·17");
+        exampleDataIter = List.of(me1, timeLine, y1, y2, y3, me2).iterator();
+    }
+
+    public static DataConfig exampleData() {
         return DataConfig.builder()
-                .dataIter(Arrays.asList(me1, timeLine, y1, y2, y3, me2).iterator())
+                .dataIter(exampleDataIter)
                 .build();
     }
 
@@ -49,15 +55,38 @@ public class WechatRecordGenerateConfig implements Serializable {
         WechatRecordGenerateConfig config = new WechatRecordGenerateConfig();
         config.setDataConfig(dataConfig);
         config.setOutConfig(new OutConfig("target/result.png"));
-        config.setBackgroundConfig(new BackgroundConfig());
+        config.setBackgroundConfig(new BackgroundConfig(new Color(17, 17, 17)));
         config.setMeChatConfig(new ChatConfig(
-                ChatConfig.MY_AVATAR,
-                new Color(89, 178, 105),
-                new Color(6, 18, 10))
+                        ChatConfig.MY_AVATAR,
+                        new Color(89, 178, 105),
+                        new Color(6, 18, 10)
+                )
         );
         config.setYouChatConfig(new ChatConfig(ChatConfig.YOU_AVATAR,
-                new Color(44, 44, 44),
-                new Color(213, 213, 213))
+                        new Color(44, 44, 44),
+                        new Color(213, 213, 213)
+                )
+        );
+        config.setDrawConfig(new DrawConfig(1000, 5000));
+        return config;
+    }
+
+    public static WechatRecordGenerateConfig defaultConfig() {
+        return defaultConfig(exampleData());
+    }
+
+    public static WechatRecordGenerateConfig defaultConfig(DataConfig dataConfig) {
+        Objects.requireNonNull(dataConfig, "数据配置不能为空");
+        Objects.requireNonNull(dataConfig.dataIter, "数据配置不能为空");
+        WechatRecordGenerateConfig config = new WechatRecordGenerateConfig();
+        config.setDataConfig(dataConfig);
+        config.setOutConfig(new OutConfig("target/result.png"));
+        config.setBackgroundConfig(new BackgroundConfig());
+        config.setMeChatConfig(new ChatConfig(ChatConfig.MY_AVATAR));
+        config.setYouChatConfig(new ChatConfig(ChatConfig.YOU_AVATAR,
+                        new Color(255, 255, 255),
+                        new Color(26, 26, 26)
+                )
         );
         config.setDrawConfig(new DrawConfig(1000, 5000));
         return config;
@@ -108,7 +137,7 @@ public class WechatRecordGenerateConfig implements Serializable {
 
         private static final long serialVersionUID = -5992999806215169535L;
 
-        private Color backgroundColor = new Color(17, 17, 17);
+        private Color backgroundColor = new Color(237, 237, 237);
 
     }
 
@@ -142,9 +171,9 @@ public class WechatRecordGenerateConfig implements Serializable {
 
         private Image avatar;
 
-        private Color boxColor = Color.BLACK;
+        private Color boxColor = new Color(169, 234, 122);
 
-        private Color textColor = Color.WHITE;
+        private Color textColor = new Color(16, 23, 11);
 
         public ChatConfig(Image avatar) {
             this.avatar = avatar;
