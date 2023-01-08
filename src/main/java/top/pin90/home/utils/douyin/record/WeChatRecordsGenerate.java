@@ -36,6 +36,8 @@ public class WeChatRecordsGenerate {
 
     private WechatRecordGenerateConfig.DrawConfig drawConfig;
 
+    private boolean debug = false;
+
     public WeChatRecordsGenerate(WechatRecordGenerateConfig config) {
         Objects.requireNonNull(config);
         Objects.requireNonNull(config.getDataConfig());
@@ -51,6 +53,7 @@ public class WeChatRecordsGenerate {
     public static void main(String[] args) throws Exception {
         WechatRecordGenerateConfig config = WechatRecordGenerateConfig.darkDefaultConfig();
         WeChatRecordsGenerate generate = new WeChatRecordsGenerate(config);
+//        generate.setDebug(true);
         generate.run();
     }
 
@@ -70,9 +73,6 @@ public class WeChatRecordsGenerate {
         this.init();
         fillBackground();
         setStartLineAt();
-
-        drawMeChatLine("你听说过什么恐怖故事？");
-        drawTimeLine();
         WechatRecordGenerateConfig.DataConfig dataConfig = config.getDataConfig();
         Iterator<WechatRecordGenerateConfig.DateRecord> dataIter = dataConfig.getDataIter();
         while (dataIter.hasNext()) {
@@ -81,6 +81,8 @@ public class WeChatRecordsGenerate {
                 drawYouChatLine(next.getMsg());
             } else if(next.getOid() == WechatRecordGenerateConfig.DateRecord.ME_OID){
                 drawMeChatLine(next.getMsg());
+            } else if(next.getOid() == WechatRecordGenerateConfig.DateRecord.TIME_LINE){
+                drawTimeLine(next.getMsg());
             }
         }
         save();
@@ -98,9 +100,9 @@ public class WeChatRecordsGenerate {
         graph2D.fillRect(0, 0, config.getDrawConfig().getWidth(), config.getDrawConfig().getHeight());
     }
 
-    public void drawTimeLine() {
+    public void drawTimeLine(String time) {
         Font font = textFont.deriveFont(Font.PLAIN, (float) (config.getDrawConfig().getWidth() * 0.03));
-        TextLayout textLayout = new TextLayout(config.getDataConfig().getTime(), font, graph2D.getFontRenderContext());
+        TextLayout textLayout = new TextLayout(time, font, graph2D.getFontRenderContext());
         double w = textLayout.getBounds().getWidth();
         float x = (float) (config.getDrawConfig().getWidth() / 2 - w / 2);
         float y = baseWritePoint + drawConfig.getMarginTopWithPreRecord() + textLayout.getAscent();
@@ -159,12 +161,14 @@ public class WeChatRecordsGenerate {
         double w = caleWidth(msg);
         double textAreaWidth = w - 2 * drawConfig.getChatMsgBoxPadding();
         int x = drawConfig.getTriangleMarginLeft() + drawConfig.getTagD();
-        int height = drawMsg(x, baseY, textAreaWidth, msg, false) + drawConfig.getChatMsgBoxPadding();
-        height = Math.max(height, drawConfig.getAvatarSize());
+        int topAndBottomPadding = drawConfig.getChatMsgBoxPadding() * 2;
+        int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
+//        height = Math.max(height, drawConfig.getAvatarSize());
+        // 下一页逻辑
         if (baseY + height - config.getDrawConfig().getWidth() * 0.02 >= config.getDrawConfig().getHeight()) {
             nextPage();
             baseY = baseWritePoint;
-            height = drawMsg(x, baseY, textAreaWidth, msg, false) + drawConfig.getChatMsgBoxPadding();
+            height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
             height = Math.max(height, drawConfig.getAvatarSize());
         }
         graph2D.setColor(config.getYouChatConfig().getBoxColor());
@@ -180,8 +184,16 @@ public class WeChatRecordsGenerate {
         double w = caleWidth(msg);
         double textAreaWidth = w - 2 * drawConfig.getChatMsgBoxPadding();
         int x = (int) (config.getDrawConfig().getWidth() - (w + drawConfig.getTriangleMarginLeft() + drawConfig.getTagD()));
-        int height = drawMsg(x, baseY, textAreaWidth, msg, false) + drawConfig.getChatMsgBoxPadding();
-        height = Math.max(height, drawConfig.getAvatarSize());
+        int topAndBottomPadding = drawConfig.getChatMsgBoxPadding() * 2;
+        int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
+//        height = Math.max(height, drawConfig.getAvatarSize());
+        // 下一页逻辑
+        if (baseY + height - config.getDrawConfig().getWidth() * 0.02 >= config.getDrawConfig().getHeight()) {
+            nextPage();
+            baseY = baseWritePoint;
+            height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
+            height = Math.max(height, drawConfig.getAvatarSize());
+        }
         graph2D.setColor(config.getMeChatConfig().getBoxColor());
         drawMeChatTag(baseY);
         graph2D.fill(new RoundRectangle2D.Double(x, baseY, w, height, drawConfig.getChatBoxRadius(), drawConfig.getChatBoxRadius()));
@@ -220,14 +232,21 @@ public class WeChatRecordsGenerate {
     public int drawMsg(int boxX, int boxY, double w, String msg, boolean draw) {
         AttributedString text = new AttributedString(msg);
         text.addAttribute(TextAttribute.FONT, textFont, 0, msg.length());
+        text.addAttribute(TextAttribute.WIDTH, TextAttribute.WIDTH_CONDENSED, 0, msg.length());
+
         AttributedCharacterIterator iterator = text.getIterator();
         FontRenderContext frc = graph2D.getFontRenderContext();
         LineBreakMeasurer measurer = new LineBreakMeasurer(iterator, frc);
+//        measurer.
         float wrappingWidth = (float) w;
         int x = boxX + drawConfig.getChatMsgBoxPadding();
         int y = boxY + drawConfig.getChatMsgBoxPadding();
+        int textBaseY = y;
         boolean midLine = false;
+
+        int cn = 0;
         while (measurer.getPosition() < msg.length()) {
+            cn = measurer.getPosition() - cn;
             TextLayout layout = measurer.nextLayout(wrappingWidth);
             Rectangle2D bounds = layout.getBounds();
             double lineSpacing;
@@ -237,13 +256,31 @@ public class WeChatRecordsGenerate {
                 lineSpacing = 0;
                 midLine = true;
             }
-            y += layout.getAscent() + lineSpacing;
+            // 行距
+            y += lineSpacing;
+            // 计算基线的位置
+            y += layout.getAscent();
             if (draw) {
                 layout.draw(graph2D, x, y);
+
+                if(debug) {
+                    int ty = (int) (y - (layout.getAscent()));
+                    Color bc = graph2D.getColor();
+
+//                    graph2D.setColor(Color.WHITE);
+//                    graph2D.drawRect(x, ty, (int) bounds.getWidth(), (int) (bounds.getHeight() + layout.getDescent()));
+
+                    Rectangle pixelBounds = layout.getPixelBounds(null, x, y);
+                    graph2D.setColor(Color.ORANGE);
+                    graph2D.drawRect(x, ty, (int) pixelBounds.getWidth() + 3, (int) (pixelBounds.getHeight() + layout.getDescent()));
+//            layout.getBlackBoxBounds()
+                    graph2D.setColor(bc);
+                }
             }
-            y += layout.getDescent() + layout.getLeading();
+            y += layout.getLeading();
+            y += layout.getDescent();
         }
-        return y - boxY;
+        return y - textBaseY;
     }
 
     public void nextPage() {
@@ -311,5 +348,9 @@ public class WeChatRecordsGenerate {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void setDebug(boolean debug) {
+        this.debug = debug;
     }
 }

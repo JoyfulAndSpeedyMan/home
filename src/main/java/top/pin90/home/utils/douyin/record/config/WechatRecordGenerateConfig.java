@@ -28,12 +28,12 @@ public class WechatRecordGenerateConfig implements Serializable {
 
     public static DataConfig exampleData() {
         DateRecord me = new DateRecord(DateRecord.ME_OID, "你好");
+        DateRecord timeLine = new DateRecord(DateRecord.TIME_LINE, "10月31日 00:57");
         DateRecord y1 = new DateRecord(DateRecord.YOU_OID, "你好");
-        DateRecord y2 = new DateRecord(DateRecord.YOU_OID, "你好??");
-        DateRecord y3 = new DateRecord(DateRecord.YOU_OID, "你好????");
+        DateRecord y2 = new DateRecord(DateRecord.YOU_OID, "查寝的人会用各种方式让你开门");
+        DateRecord y3 = new DateRecord(DateRecord.YOU_OID, "不要开灯不要开窗不要拉开窗帘不要开灯不要开窗不要拉开窗帘");
         return DataConfig.builder()
-                .dataIter(Arrays.asList(me, y1, y2, y3).iterator())
-                .time("10月31日 00:57")
+                .dataIter(Arrays.asList(me, timeLine, y1, y2, y3).iterator())
                 .build();
     }
 
@@ -48,9 +48,16 @@ public class WechatRecordGenerateConfig implements Serializable {
         config.setDataConfig(dataConfig);
         config.setOutConfig(new OutConfig("target/result.png"));
         config.setBackgroundConfig(new BackgroundConfig());
-        config.setMeChatConfig(new ChatConfig(ChatConfig.MY_AVATAR, new Color(137, 217, 97), Color.BLACK));
-        config.setYouChatConfig(new ChatConfig(ChatConfig.YOU_AVATAR));
-        config.setDrawConfig(new DrawConfig());
+        config.setMeChatConfig(new ChatConfig(
+                ChatConfig.MY_AVATAR,
+                new Color(89, 178, 105),
+                new Color(6, 18, 10))
+        );
+        config.setYouChatConfig(new ChatConfig(ChatConfig.YOU_AVATAR,
+                new Color(44, 44, 44),
+                new Color(213, 213, 213))
+        );
+        config.setDrawConfig(new DrawConfig(1000, 1500));
         return config;
     }
 
@@ -65,7 +72,6 @@ public class WechatRecordGenerateConfig implements Serializable {
 
         private Iterator<DateRecord> dataIter;
 
-        private String time;
     }
 
     @Getter
@@ -75,14 +81,17 @@ public class WechatRecordGenerateConfig implements Serializable {
     @ToString
     public static class DateRecord {
 
+        public final static int TIME_LINE = 0;
+
         public final static int ME_OID = 1;
 
         public final static int YOU_OID = 2;
 
+
         /**
          * 发言者id
          */
-        private int oid;
+        private int oid = -1;
 
         private String msg;
     }
@@ -97,7 +106,7 @@ public class WechatRecordGenerateConfig implements Serializable {
 
         private static final long serialVersionUID = -5992999806215169535L;
 
-        private Color backgroundColor = new Color(150, 150, 150);
+        private Color backgroundColor = new Color(17, 17, 17);
 
     }
 
@@ -128,6 +137,7 @@ public class WechatRecordGenerateConfig implements Serializable {
                 throw new RuntimeException(e);
             }
         }
+
         private Image avatar;
 
         private Color boxColor = Color.BLACK;
@@ -198,21 +208,26 @@ public class WechatRecordGenerateConfig implements Serializable {
             calc();
         }
 
-        public DrawConfig(int width) {
+        public DrawConfig(int width, int height) {
+            this.height = height;
             this.width = width;
             calc();
         }
 
         public void calc() {
-            textFont = new Font("微软雅黑", Font.PLAIN, (int) (width * 0.045));
+//            avatarSize = (int) (width * 0.115);
+//            textFont = new Font("微软雅黑", Font.PLAIN, (int) (width * 0.047));
+
+            avatarSize = (int) (115);
+            textFont = new Font("微软雅黑", Font.PLAIN, (int) (avatarSize * 0.4));
+            chatMsgBoxPadding = (int) (avatarSize * 0.26);
             tagD = (int) (width * 0.014);
             chatBoxMaxWidth = width * 0.7;
             chatBoxRadius = width * 0.02;
-            avatarSize = (int) (width * 0.115);
             avatarMargin = (int) (avatarSize * 0.3478);
             triangleMarginLeft = (int) (avatarMargin + avatarSize + width * 0.015);
             marginTopWithPreRecord = (int) (width * 0.04);
-            chatMsgBoxPadding = (int) (width * 0.023);
+
         }
     }
 
