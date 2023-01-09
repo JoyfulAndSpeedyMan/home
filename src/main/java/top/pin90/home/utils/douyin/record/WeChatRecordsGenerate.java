@@ -79,11 +79,11 @@ public class WeChatRecordsGenerate {
         Iterator<WechatRecordGenerateConfig.DateRecord> dataIter = dataConfig.getDataIter();
         while (dataIter.hasNext()) {
             WechatRecordGenerateConfig.DateRecord next = dataIter.next();
-            if(next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.YOU) {
+            if (next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.YOU) {
                 drawYouChatLine(next.getMsg());
-            } else if(next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.ME){
+            } else if (next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.ME) {
                 drawMeChatLine(next.getMsg());
-            } else if(next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.TIME_LINE){
+            } else if (next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.TIME_LINE) {
                 drawTimeLine(next.getMsg());
             }
         }
@@ -265,11 +265,11 @@ public class WeChatRecordsGenerate {
             if (draw) {
                 layout.draw(graph2D, x, y);
 
-                if(debug) {
+                if (debug) {
                     int ty = (int) (y - (layout.getAscent()));
                     Color bc = graph2D.getColor();
                     Rectangle pixelBounds = layout.getPixelBounds(null, x, y);
-                    graph2D.setColor(Color.ORANGE);
+                    graph2D.setColor(Color.yellow);
                     graph2D.drawRect(x, ty, (int) pixelBounds.getWidth() + 3, (int) (pixelBounds.getHeight() + layout.getDescent()));
                     graph2D.setColor(bc);
                 }
@@ -311,11 +311,14 @@ public class WeChatRecordsGenerate {
         log.info("图片生成完成，开始整合图片");
         int height = 0;
         int slot = (int) (config.getDrawConfig().getWidth() * 0.002);
+        int lastHeight = results.get(results.size() - 1).getHeight();
         for (BufferedImage bufferedImage : results) {
             height += bufferedImage.getHeight();
             height += slot;
         }
         height -= slot;
+        height -= lastHeight;
+        height += baseWritePoint + drawConfig.getMarginTopWithPreRecord();
         BufferedImage result = new BufferedImage(config.getDrawConfig().getWidth(), height, imgType);
         Graphics2D g = result.createGraphics();
         g.setColor(new Color(211, 211, 211));
@@ -335,7 +338,7 @@ public class WeChatRecordsGenerate {
             if (StringUtils.isNotBlank(config.getOutConfig().getOutFile())) {
 //                File file = new File(classpath + File.separator + config.getOutConfig().getOutFile());
                 File file = new File(config.getOutConfig().getOutFile());
-                log.info("文件将写入到 {}",file.getAbsolutePath());
+                log.info("文件将写入到 {}", file.getAbsolutePath());
                 ImageIO.write(result, config.getOutConfig().getFileFormat(), file);
                 log.info("文件将写入完成");
             } else {
