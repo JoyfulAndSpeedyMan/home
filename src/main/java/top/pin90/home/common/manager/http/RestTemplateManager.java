@@ -1,4 +1,4 @@
-package top.pin90.home.common.utils.http;
+package top.pin90.home.common.manager.http;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestTemplate;
