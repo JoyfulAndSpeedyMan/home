@@ -9,6 +9,7 @@ import top.pin90.home.utils.douyin.FictionUtils;
 import top.pin90.home.utils.douyin.record.WeChatRecordsGenerate;
 import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig;
 
+import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,8 +49,8 @@ public class FictionUtilsTest {
     }
 
     @Test
-    public void generateChatRecordImgByUrl() {
-        String url = "https://www.zhihu.com/market/paid_column/1553436710532493313/section/1553440073525415936?is_share_data=true&vp_share_title=0";
+    public void generateChatRecordImgByUrl() throws IOException {
+        String url = "https://www.zhihu.com/market/paid_column/1466464742261338112/section/1466465669663862784";
         int limit = 300;
         List<String> lines = fictionUtils.readlineFromUrl(url, limit);
         log.info("文章抓取完成, 共{}条， limit {}，开始处理文本", lines.size(), limit);
@@ -57,18 +58,28 @@ public class FictionUtilsTest {
                 SensitiveWordUtils::replaceSensitiveWordToPinyin, false, limit);
         log.info("文本处理完成, 共{}条，limit {}，开始自定义文本", resultList.size(), limit);
 
+
+
+        WechatRecordGenerateConfig defaultConfig = WechatRecordGenerateConfig.defaultConfig();
+
         List<WechatRecordGenerateConfig.DateRecord> allData = new ArrayList<>();
-        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "你们学校发生过什么惊悚的事情"));
-        allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "2023年 12月31日 23:56"));
+        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "你有过什么让你脸红心跳的经历"));
+        allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "1月3日 14:23"));
         for (String msg : resultList) {
             allData.add(new WechatRecordGenerateConfig.DateRecord(YOU, msg));
         }
-
         log.info("自定义文本完成, 共{}条，开始生成图片", allData.size());
+        defaultConfig.getDataConfig().setDataIter(allData.iterator());
 
-        WechatRecordGenerateConfig config = WechatRecordGenerateConfig.darkDefaultConfig();
-        config.getDataConfig().setDataIter(allData.iterator());
-        WeChatRecordsGenerate generate = new WeChatRecordsGenerate(config);
+        String baseDir = "D:\\workspace\\文件\\知乎小说\\心机仅你可见：双向暗恋，甜蜜对线";
+        String youAvatar = "you.JPG";
+        String chatRecord = "聊天记录.png";
+        WechatRecordGenerateConfig.ChatConfig youChatConfig = defaultConfig.getYouChatConfig();
+        youChatConfig.setAvatar(ImageIO.read(new File(baseDir + File.separator + youAvatar)));
+
+        WechatRecordGenerateConfig.OutConfig outConfig = defaultConfig.getOutConfig();
+        outConfig.setOutFile(baseDir + File.separator + chatRecord);
+        WeChatRecordsGenerate generate = new WeChatRecordsGenerate(defaultConfig);
         generate.run();
         log.info("图片生成完成！");
     }
