@@ -11,8 +11,6 @@ import org.jsoup.select.Elements;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import top.pin90.home.common.utils.SensitiveWordUtils;
-import top.pin90.home.common.utils.http.RestTemplateManager;
 
 import java.io.StringReader;
 import java.util.*;
@@ -29,6 +27,12 @@ public class FictionUtils {
     public final List<String> splitNewLineSymbol = Arrays.asList("，", ",");
 
     public final Pattern numberLinePattern = Pattern.compile("^\\s*\\d+\\s*、?\\s*(\\S*)");
+
+    private final RestTemplate restTemplate;
+
+    public FictionUtils(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     public List<String> readlineAndRemoveEmptyLine(String paragraph) {
         StringReader reader = new StringReader(paragraph);
@@ -49,7 +53,6 @@ public class FictionUtils {
     }
 
     public List<String> readlineFromUrl(String url, Integer lineLimit) {
-        RestTemplate restTemplate = RestTemplateManager.getInstance();
         ResponseEntity<String> entity = restTemplate.getForEntity(url, String.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             throw new RuntimeException("http code error " + entity.getStatusCode().value());

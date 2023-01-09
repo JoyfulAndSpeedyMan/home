@@ -37,9 +37,9 @@ public class ExecutorConfig {
 
     @Bean
     public TomcatProtocolHandlerCustomizer<?> protocolHandlerVirtualThreadExecutorCustomizer(
-            ExecutorService vtExecutorService) {
+            ExecutorService virtualExecutorService) {
         return protocolHandler -> {
-            protocolHandler.setExecutor(vtExecutorService);
+            protocolHandler.setExecutor(virtualExecutorService);
         };
     }
 }

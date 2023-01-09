@@ -3,6 +3,7 @@ package top.pin90.home.douyin.utils;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import top.pin90.home.common.manager.http.RestTemplateManager;
 import top.pin90.home.common.utils.SensitiveWordUtils;
 import top.pin90.home.common.utils.file.ClasspathUtils;
 import top.pin90.home.utils.douyin.FictionUtils;
@@ -28,7 +29,7 @@ public class FictionUtilsTest {
     public void before() throws IOException {
         File file = ClasspathUtils.getFile("/douyin/utils/fiction/in.txt");
         inTextPath = file.getAbsolutePath();
-        fictionUtils = new FictionUtils();
+        fictionUtils = new FictionUtils(RestTemplateManager.getInstance());
     }
 
     @Test
