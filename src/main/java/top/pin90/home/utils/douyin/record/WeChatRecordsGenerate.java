@@ -2,6 +2,8 @@ package top.pin90.home.utils.douyin.record;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig;
 
 import javax.imageio.ImageIO;
@@ -20,23 +22,21 @@ import java.util.List;
 @Slf4j
 public class WeChatRecordsGenerate {
 
-    private int imgType = BufferedImage.TYPE_INT_ARGB;
+    private final int imgType = BufferedImage.TYPE_INT_ARGB;
     private BufferedImage img = null;
     private Graphics2D graph2D = null;
     private Font textFont = null;
-
-    private File outDir;
-
     private int baseWritePoint = 0;
-
     private int curFileIndex = 0;
-    private List<BufferedImage> results = new LinkedList<>();
+    private final List<BufferedImage> results = new LinkedList<>();
+
+    private final List<Integer> lastBaseWritePoints = new LinkedList<>();
 
     private BufferedImage result;
 
-    private WechatRecordGenerateConfig config;
+    private final WechatRecordGenerateConfig config;
 
-    private WechatRecordGenerateConfig.DrawConfig drawConfig;
+    private final WechatRecordGenerateConfig.DrawConfig drawConfig;
 
     private boolean debug = false;
 
@@ -93,7 +93,11 @@ public class WeChatRecordsGenerate {
     }
 
     private void setStartLineAt() {
-        baseWritePoint = 118 - drawConfig.getMarginTopWithPreRecord();
+        if (results.isEmpty()) {
+            baseWritePoint = 118 - drawConfig.getMarginTopWithPreRecord();
+        } else {
+            baseWritePoint = 0;
+        }
     }
 
 
@@ -115,14 +119,12 @@ public class WeChatRecordsGenerate {
 
     public void drawMeChatLine(String msg) {
         int baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
-        int bottom = drawMeChatBox(baseY, msg);
-        baseWritePoint = bottom;
+        baseWritePoint = drawMeChatBox(baseY, msg);
     }
 
     public void drawYouChatLine(String msg) {
         int baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
-        int bottom = drawYouChatBox(baseY, msg);
-        baseWritePoint = bottom;
+        baseWritePoint = drawYouChatBox(baseY, msg);
     }
 
     private void drawMeAvatar(int baseY) {
@@ -163,16 +165,9 @@ public class WeChatRecordsGenerate {
         double w = caleWidth(msg);
         double textAreaWidth = w - 2 * drawConfig.getChatMsgBoxPadding();
         int x = drawConfig.getTriangleMarginLeft() + drawConfig.getTagD();
-        int topAndBottomPadding = drawConfig.getChatMsgBoxPadding() * 2;
-        int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
-//        height = Math.max(height, drawConfig.getAvatarSize());
-        // 下一页逻辑
-        if (baseY + height - config.getDrawConfig().getWidth() * 0.02 >= config.getDrawConfig().getHeight()) {
-            nextPage();
-            baseY = baseWritePoint;
-            height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
-            height = Math.max(height, drawConfig.getAvatarSize());
-        }
+        Pair<Integer, Integer> pair = caleHeightAndNextPage(msg, x, baseY, textAreaWidth);
+        baseY = pair.getKey();
+        int height = pair.getRight();
         graph2D.setColor(config.getYouChatConfig().getBoxColor());
         drawYouChatTag(baseY);
         graph2D.fill(new RoundRectangle2D.Double(x, baseY, w, height, drawConfig.getChatBoxRadius(), drawConfig.getChatBoxRadius()));
@@ -186,16 +181,9 @@ public class WeChatRecordsGenerate {
         double w = caleWidth(msg);
         double textAreaWidth = w - 2 * drawConfig.getChatMsgBoxPadding();
         int x = (int) (config.getDrawConfig().getWidth() - (w + drawConfig.getTriangleMarginLeft() + drawConfig.getTagD()));
-        int topAndBottomPadding = drawConfig.getChatMsgBoxPadding() * 2;
-        int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
-//        height = Math.max(height, drawConfig.getAvatarSize());
-        // 下一页逻辑
-        if (baseY + height - config.getDrawConfig().getWidth() * 0.02 >= config.getDrawConfig().getHeight()) {
-            nextPage();
-            baseY = baseWritePoint;
-            height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
-            height = Math.max(height, drawConfig.getAvatarSize());
-        }
+        Pair<Integer, Integer> pair = caleHeightAndNextPage(msg, x, baseY, textAreaWidth);
+        baseY = pair.getKey();
+        int height = pair.getRight();
         graph2D.setColor(config.getMeChatConfig().getBoxColor());
         drawMeChatTag(baseY);
         graph2D.fill(new RoundRectangle2D.Double(x, baseY, w, height, drawConfig.getChatBoxRadius(), drawConfig.getChatBoxRadius()));
@@ -209,7 +197,20 @@ public class WeChatRecordsGenerate {
         FontMetrics fontMetrics = graph2D.getFontMetrics();
         Rectangle2D stringBounds = fontMetrics.getStringBounds(msg, graph2D);
         return Math.min(stringBounds.getWidth() + 2 * drawConfig.getChatMsgBoxPadding(), drawConfig.getChatBoxMaxWidth() - 2 * drawConfig.getChatMsgBoxPadding());
+    }
 
+    private Pair<Integer, Integer> caleHeightAndNextPage(String msg, int x, int baseY, double textAreaWidth) {
+        int topAndBottomPadding = drawConfig.getChatMsgBoxPadding() << 1;
+        int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
+//        height = Math.max(height, drawConfig.getAvatarSize());
+        // 下一页逻辑
+        if (baseY + height - drawConfig.getMarginTopWithPreRecord() >= drawConfig.getHeight()) {
+            nextPage();
+            baseY = baseWritePoint;
+            height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
+            height = Math.max(height, drawConfig.getAvatarSize());
+        }
+        return ImmutablePair.of(baseY, height);
     }
 
     private void drawYouChatTag(int baseY) {
@@ -286,7 +287,7 @@ public class WeChatRecordsGenerate {
     }
 
     public void newImg() {
-        img = new BufferedImage(config.getDrawConfig().getWidth(), config.getDrawConfig().getHeight(), imgType);
+        img = new BufferedImage(drawConfig.getWidth(), drawConfig.getHeight(), imgType);
         graph2D = img.createGraphics();
         graph2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
         graph2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -300,8 +301,11 @@ public class WeChatRecordsGenerate {
     public void save() {
         try {
             results.add(img);
+            lastBaseWritePoints.add(baseWritePoint);
+            if (config.getOutConfig().isOutputMiddleImg()) {
+                ImageIO.write(img, "png", new File(config.getOutConfig().getOutAllImgDir() + File.separator + (++curFileIndex) + ".png"));
+            }
             graph2D.dispose();
-//            ImageIO.write(img, "png", new File(outDir.getAbsoluteFile() + File.separator + (++curFileIndex) + ".png"));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -310,24 +314,26 @@ public class WeChatRecordsGenerate {
     private void collectOne() {
         log.info("图片生成完成，开始整合图片");
         int height = 0;
-        int slot = (int) (config.getDrawConfig().getWidth() * 0.002);
-        int lastHeight = results.get(results.size() - 1).getHeight();
-        for (BufferedImage bufferedImage : results) {
-            height += bufferedImage.getHeight();
+        int slot = drawConfig.getSlot();
+        for (Integer lastBaseWritePoint : lastBaseWritePoints) {
+            height += lastBaseWritePoint + drawConfig.getMarginTopWithPreRecord();
             height += slot;
         }
         height -= slot;
-        height -= lastHeight;
-        height += baseWritePoint + drawConfig.getMarginTopWithPreRecord();
         BufferedImage result = new BufferedImage(config.getDrawConfig().getWidth(), height, imgType);
         Graphics2D g = result.createGraphics();
-        g.setColor(new Color(211, 211, 211));
         int y = 0;
+        Color slotColor = new Color(211, 211, 211);
         for (int i = 0; i < results.size(); i++) {
             BufferedImage img = results.get(i);
-            g.drawImage(img, 0, y, img.getWidth(), img.getHeight(), null);
-            if (i != results.size() - 1) {
-                y += img.getHeight();
+            int h = lastBaseWritePoints.get(i);
+            g.drawImage(img, 0, y, img.getWidth(), y + h, 0, 0, img.getWidth(), h, null);
+            y += h;
+            g.setColor(config.getBackgroundConfig().getBackgroundColor());
+            g.fillRect(0, y, img.getWidth(), drawConfig.getMarginTopWithPreRecord());
+            y += drawConfig.getMarginTopWithPreRecord();
+            if (i != results.size() - 1 && slot > 0) {
+                g.setColor(slotColor);
                 g.fillRect(0, y, img.getWidth(), slot);
                 y += slot;
             }

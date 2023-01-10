@@ -124,10 +124,12 @@ public class FictionUtils {
         Pair<Boolean, List<String>> detectSplit = detectSplit(noSensitive);
         if (detectSplit.getLeft()) {
             for (String s : detectSplit.getRight()) {
-                resultList.add(s);
-                if (lineLimit != null && lineLimit <= resultList.size()) {
-                    log.info("lineLimit {} return", lineLimit);
-                    return;
+                if(StringUtils.isNotBlank(s)) {
+                    resultList.add(s);
+                    if (lineLimit != null && lineLimit <= resultList.size()) {
+                        log.info("lineLimit {} return", lineLimit);
+                        return;
+                    }
                 }
             }
         } else {
@@ -153,7 +155,10 @@ public class FictionUtils {
                     int k = text.indexOf(symbol, i);
                     if (k != -1) {
                         requireSplit = true;
-                        list.add(text.substring(i, k));
+                        String t = text.substring(i, k);
+                        if(StringUtils.isNotBlank(t)) {
+                            list.add(t);
+                        }
                         j = k + 1;
                         i = j;
 //                        log.debug("text= {}, i= {}, j= {}, k= {}\n", text, i, j, k);
@@ -166,7 +171,10 @@ public class FictionUtils {
             }
         }
         if (j > 0) {
-            list.add(text.substring(j));
+            String t = text.substring(j);
+            if(StringUtils.isNotBlank(t)) {
+                list.add(t);
+            }
         }
         if (!requireSplit) {
             list.add(text);

@@ -201,6 +201,8 @@ public class WechatRecordGenerateConfig implements Serializable {
 
         private static final long serialVersionUID = -3650362894969563213L;
 
+        private boolean outputMiddleImg;
+
         private String outAllImgDir;
 
         private String outFile;
@@ -232,6 +234,7 @@ public class WechatRecordGenerateConfig implements Serializable {
         private int chatMsgBoxPadding;
         private Font textFont = null;
 
+        private int slot;
 
         public DrawConfig() {
             width = 600;
@@ -260,8 +263,8 @@ public class WechatRecordGenerateConfig implements Serializable {
             chatBoxRadius = width * 0.02;
             avatarMargin = (int) (avatarSize * 0.3478);
             triangleMarginLeft = (int) (avatarMargin + avatarSize + width * 0.015);
-            marginTopWithPreRecord = (int) (width * 0.04);
-
+            marginTopWithPreRecord = (int) (avatarSize * 0.3);
+            slot = 0;
         }
     }
 
