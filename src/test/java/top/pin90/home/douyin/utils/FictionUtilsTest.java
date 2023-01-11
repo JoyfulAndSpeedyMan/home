@@ -51,7 +51,7 @@ public class FictionUtilsTest {
 
     @Test
     public void generateChatRecordImgByUrl() throws IOException {
-        String url = "https://www.zhihu.com/market/paid_column/1548688851257974784/section/1548690038032175105";
+        String url = "https://www.zhihu.com/market/paid_column/1462091005193818112/section/1462091588884766720";
         int limit = 300;
         List<String> lines = fictionUtils.readlineFromUrl(url, limit);
         log.info("文章抓取完成, 共{}条， limit {}，开始处理文本", lines.size(), limit);
@@ -61,18 +61,18 @@ public class FictionUtilsTest {
 
 
 
-        WechatRecordGenerateConfig defaultConfig = WechatRecordGenerateConfig.darkDefaultConfig();
+        WechatRecordGenerateConfig defaultConfig = WechatRecordGenerateConfig.defaultConfig();
 
         List<WechatRecordGenerateConfig.DateRecord> allData = new ArrayList<>();
-        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "你听说过什么中国文化故事"));
-        allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "1月4日 00:01"));
+        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "你租房遇到过什么奇葩的事情吗"));
+        allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "1月5日 11:04"));
         for (String msg : resultList) {
             allData.add(new WechatRecordGenerateConfig.DateRecord(YOU, msg));
         }
         log.info("自定义文本完成, 共{}条，开始生成图片", allData.size());
         defaultConfig.getDataConfig().setDataIter(allData.iterator());
 
-        String baseDir = "D:\\workspace\\文件\\知乎小说\\蛇妖虬褫";
+        String baseDir = "D:\\workspace\\文件\\知乎小说\\全世界的租房人们，团结起来！";
         String youAvatar = "you.jpg";
         String chatRecord = "聊天记录.png";
         WechatRecordGenerateConfig.ChatConfig youChatConfig = defaultConfig.getYouChatConfig();
@@ -81,6 +81,7 @@ public class FictionUtilsTest {
         WechatRecordGenerateConfig.OutConfig outConfig = defaultConfig.getOutConfig();
         outConfig.setOutFile(baseDir + File.separator + chatRecord);
         outConfig.setOutAllImgDir(baseDir + File.separator + "allImgs");
+        outConfig.setOutputMiddleImg(true);
         WeChatRecordsGenerate generate = new WeChatRecordsGenerate(defaultConfig);
         generate.run();
         log.info("图片生成完成！");

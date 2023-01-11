@@ -26,7 +26,7 @@ public class FictionUtils {
 
     public final List<String> splitNewLineSymbol = Arrays.asList("，", ",");
 
-    public final Pattern numberLinePattern = Pattern.compile("^\\s*\\d+\\s*、?\\s*(\\S*)");
+    public final Pattern numberLinePattern = Pattern.compile("^\\s*[(（\\[]\\s*\\d+\\s*[)）\\]]\\s*、?\\s*(\\S*)");
 
     private final RestTemplate restTemplate;
 

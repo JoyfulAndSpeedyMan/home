@@ -204,11 +204,11 @@ public class WeChatRecordsGenerate {
         int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
 //        height = Math.max(height, drawConfig.getAvatarSize());
         // 下一页逻辑
-        if (baseY + height - drawConfig.getMarginTopWithPreRecord() >= drawConfig.getHeight()) {
+        if (baseY + height + topAndBottomPadding - drawConfig.getMarginTopWithPreRecord() >= drawConfig.getHeight()) {
             nextPage();
             baseY = baseWritePoint;
             height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
-            height = Math.max(height, drawConfig.getAvatarSize());
+//            height = Math.max(height, drawConfig.getAvatarSize());
         }
         return ImmutablePair.of(baseY, height);
     }
@@ -303,6 +303,8 @@ public class WeChatRecordsGenerate {
             results.add(img);
             lastBaseWritePoints.add(baseWritePoint);
             if (config.getOutConfig().isOutputMiddleImg()) {
+//                graph2D.setColor(new Color(0, 0, 0, 20));
+//                graph2D.fillRect(0, 0, img.getWidth(), baseWritePoint);
                 ImageIO.write(img, "png", new File(config.getOutConfig().getOutAllImgDir() + File.separator + (++curFileIndex) + ".png"));
             }
             graph2D.dispose();
