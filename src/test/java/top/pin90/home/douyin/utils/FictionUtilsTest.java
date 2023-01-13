@@ -51,7 +51,7 @@ public class FictionUtilsTest {
 
     @Test
     public void generateChatRecordImgByUrl() throws IOException {
-        String url = "https://www.zhihu.com/market/paid_column/1462091005193818112/section/1462091588884766720";
+        String url = "https://www.zhihu.com/market/paid_column/1353427390241054720/section/1353427779145400320";
         int limit = 300;
         List<String> lines = fictionUtils.readlineFromUrl(url, limit);
         log.info("文章抓取完成, 共{}条， limit {}，开始处理文本", lines.size(), limit);
@@ -64,15 +64,15 @@ public class FictionUtilsTest {
         WechatRecordGenerateConfig defaultConfig = WechatRecordGenerateConfig.defaultConfig();
 
         List<WechatRecordGenerateConfig.DateRecord> allData = new ArrayList<>();
-        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "你租房遇到过什么奇葩的事情吗"));
-        allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "1月5日 11:04"));
+        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "你有什么难忘的事情吗"));
+        allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "1月7日 13:36"));
         for (String msg : resultList) {
             allData.add(new WechatRecordGenerateConfig.DateRecord(YOU, msg));
         }
         log.info("自定义文本完成, 共{}条，开始生成图片", allData.size());
         defaultConfig.getDataConfig().setDataIter(allData.iterator());
 
-        String baseDir = "D:\\workspace\\文件\\知乎小说\\全世界的租房人们，团结起来！";
+        String baseDir = "D:\\workspace\\文件\\知乎小说\\情书";
         String youAvatar = "you.jpg";
         String chatRecord = "聊天记录.png";
         WechatRecordGenerateConfig.ChatConfig youChatConfig = defaultConfig.getYouChatConfig();
