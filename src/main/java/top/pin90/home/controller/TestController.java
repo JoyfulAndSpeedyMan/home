@@ -25,14 +25,8 @@ public class TestController {
     }
 
     @GetMapping("/currentTime")
-    public String currentTime(int s) {
-        if(s > 0) {
-            try {
-                Thread.sleep(s);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+    public String currentTime(int s) throws InterruptedException {
+        Thread.sleep(s);
         return System.currentTimeMillis() + "";
     }
 
