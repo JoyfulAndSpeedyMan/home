@@ -20,7 +20,9 @@ public class WebClientManager {
     }
 
     private static WebClient newInstance() {
-        return WebClient.create();
+        return WebClient.builder()
+                .codecs(item->item.defaultCodecs().maxInMemorySize(2 * 1024 * 1024))
+                .build();
     }
 
 }

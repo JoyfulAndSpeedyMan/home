@@ -11,9 +11,11 @@ import org.jsoup.select.Elements;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.StringReader;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,8 +32,11 @@ public class FictionUtils {
 
     private final RestTemplate restTemplate;
 
-    public FictionUtils(RestTemplate restTemplate) {
+    private final WebClient webClient;
+
+    public FictionUtils(RestTemplate restTemplate, WebClient webClient) {
         this.restTemplate = restTemplate;
+        this.webClient = webClient;
     }
 
     public List<String> readlineAndRemoveEmptyLine(String paragraph) {
@@ -49,11 +54,21 @@ public class FictionUtils {
 
 
     public List<String> readlineFromUrl(String url) {
-        return readlineFromUrl(url, null);
+        return readlineFromUrl(url, null, null);
     }
 
-    public List<String> readlineFromUrl(String url, Integer lineLimit) {
-        ResponseEntity<String> entity = restTemplate.getForEntity(url, String.class);
+    public List<String> readlineFromUrl(String url, String cookie) {
+        return readlineFromUrl(url, null, cookie);
+    }
+
+    public List<String> readlineFromUrl(String url, Integer lineLimit, String cookie) {
+        ResponseEntity<String> entity = webClient.get()
+                .uri(url)
+                .header("cookie", cookie)
+                .retrieve()
+                .toEntity(String.class)
+                .block();
+//        ResponseEntity<String> entity = restTemplate.getForEntity(url, String.class);
         if (!entity.getStatusCode().is2xxSuccessful()) {
             throw new RuntimeException("http code error " + entity.getStatusCode().value());
         }
@@ -81,17 +96,26 @@ public class FictionUtils {
         return list;
     }
 
+    public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction) {
+        return this.resolveLineList(lines, sensitiveWordFunction, true, null, null);
+    }
+
+    public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction, Integer lineStart, Integer lineLimit) {
+        return this.resolveLineList(lines, sensitiveWordFunction, true, lineStart, lineLimit);
+    }
+
     public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction, boolean saveNumberLineText) {
-        return this.resolveLineList(lines, sensitiveWordFunction, saveNumberLineText, null);
+        return this.resolveLineList(lines, sensitiveWordFunction, saveNumberLineText, null, null);
     }
 
     /**
      * @param lines 要处理的行
      * @return 处理后的新行
      */
-    public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction, boolean saveNumberLineText, Integer lineLimit) {
+    public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction, boolean saveNumberLineText, Integer lineStart, Integer lineLimit) {
         LinkedList<String> resultList = new LinkedList<>();
 
+        AtomicInteger curLine = new AtomicInteger(0);
         for (String line : lines) {
             if (lineLimit != null && lineLimit <= resultList.size()) {
                 log.info("lineLimit {} return", lineLimit);
@@ -107,34 +131,47 @@ public class FictionUtils {
                     String t = detectNumberLine.getRight();
                     // 有需要的值才保留，其他时候直接删了
                     if (StringUtils.isNotBlank(t)) {
-                        addToResultList(t, sensitiveWordFunction, resultList, lineLimit);
+                        addToResultList(t, sensitiveWordFunction, resultList, lineStart, lineLimit, curLine);
                     }
                 }
             } else {
-                addToResultList(line, sensitiveWordFunction, resultList, lineLimit);
+                addToResultList(line, sensitiveWordFunction, resultList, lineStart, lineLimit, curLine);
             }
         }
         return resultList;
     }
 
 
-    private void addToResultList(String text, Function<String, String> sensitiveWordFunction, List<String> resultList, Integer lineLimit) {
+    private void addToResultList(String text, Function<String, String> sensitiveWordFunction, List<String> resultList, Integer lineStart, Integer lineLimit, AtomicInteger curLine) {
         String noSymbol = this.replaceSymbol(text);
         String noSensitive = sensitiveWordFunction.apply(noSymbol);
         Pair<Boolean, List<String>> detectSplit = detectSplit(noSensitive);
         if (detectSplit.getLeft()) {
             for (String s : detectSplit.getRight()) {
-                if(StringUtils.isNotBlank(s)) {
-                    resultList.add(s);
-                    if (lineLimit != null && lineLimit <= resultList.size()) {
-                        log.info("lineLimit {} return", lineLimit);
+                if (StringUtils.isNotBlank(s)) {
+                    if (doAddToResultList(s, resultList, lineStart, lineLimit, curLine)) {
                         return;
                     }
                 }
             }
         } else {
-            resultList.add(noSensitive);
+            doAddToResultList(noSensitive, resultList, lineStart, lineLimit, curLine);
         }
+    }
+
+    private boolean doAddToResultList(String text, List<String> resultList, Integer lineStart, Integer lineLimit, AtomicInteger curLine) {
+
+        if (lineStart != null && lineStart > curLine.incrementAndGet()) {
+            log.debug("lineLimit skip {}", lineLimit);
+            return false;
+        }
+        resultList.add(text);
+        if (lineLimit != null && lineLimit <= resultList.size()) {
+            log.debug("lineLimit {} return", lineLimit);
+            return true;
+        }
+
+        return false;
     }
 
     public Pair<Boolean, List<String>> detectSplit(String text) {
@@ -156,7 +193,7 @@ public class FictionUtils {
                     if (k != -1) {
                         requireSplit = true;
                         String t = text.substring(i, k);
-                        if(StringUtils.isNotBlank(t)) {
+                        if (StringUtils.isNotBlank(t)) {
                             list.add(t);
                         }
                         j = k + 1;
@@ -172,7 +209,7 @@ public class FictionUtils {
         }
         if (j > 0) {
             String t = text.substring(j);
-            if(StringUtils.isNotBlank(t)) {
+            if (StringUtils.isNotBlank(t)) {
                 list.add(t);
             }
         }
