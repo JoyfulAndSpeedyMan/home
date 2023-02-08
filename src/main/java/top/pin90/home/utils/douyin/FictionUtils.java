@@ -29,7 +29,6 @@ public class FictionUtils {
     public final List<String> splitNewLineSymbol = Arrays.asList("，", ",");
 
     public final Pattern numberLinePattern = Pattern.compile("^\\s*[(（\\[]*\\s*\\d+\\s*[)）\\]]*\\s*、?\\s*(\\S*)");
-
     private final RestTemplate restTemplate;
 
     private final WebClient webClient;
@@ -62,19 +61,7 @@ public class FictionUtils {
     }
 
     public List<String> readlineFromUrl(String url, Integer lineLimit, String cookie) {
-        ResponseEntity<String> entity = webClient.get()
-                .uri(url)
-                .header("cookie", cookie)
-                .retrieve()
-                .toEntity(String.class)
-                .block();
-//        ResponseEntity<String> entity = restTemplate.getForEntity(url, String.class);
-        if (!entity.getStatusCode().is2xxSuccessful()) {
-            throw new RuntimeException("http code error " + entity.getStatusCode().value());
-        }
-        if (!entity.hasBody()) {
-            throw new RuntimeException("http body empty");
-        }
+        ResponseEntity<String> entity = getEntity(url, cookie);
         String html = entity.getBody();
         Document doc = Jsoup.parse(html);
 
@@ -94,6 +81,54 @@ public class FictionUtils {
             count++;
         }
         return list;
+    }
+
+    public List<String> readlineAnswerFromUrl(String url) {
+        return readlineAnswerFromUrl(url, null, null);
+    }
+
+    public List<String> readlineAnswerFromUrl(String url, String cookie) {
+        return readlineAnswerFromUrl(url, null, cookie);
+    }
+    public List<String> readlineAnswerFromUrl(String url, Integer lineLimit, String cookie) {
+        ResponseEntity<String> entity = getEntity(url, cookie);
+        String html = entity.getBody();
+        Document doc = Jsoup.parse(html);
+        Elements divs = doc.select("div.RichContent .RichContent-inner .RichText");
+        Element richContent = divs.first();
+        Elements children = richContent.children();
+        int count = 0;
+        ArrayList<String> list = new ArrayList<>(children.size());
+        for (Element p : children) {
+            if (lineLimit != null && count >= lineLimit) {
+                break;
+            }
+            list.add(p.text());
+            count++;
+        }
+        return list;
+    }
+
+    private ResponseEntity<String> getEntity(String url, String cookie) {
+        WebClient.RequestHeadersSpec<?> request = webClient.get()
+                .uri(url);
+        if (StringUtils.isNotBlank(cookie)) {
+            request.header("cookie", cookie);
+        }
+        ResponseEntity<String> entity = request
+                .retrieve()
+                .toEntity(String.class)
+                .block();
+        if (entity == null) {
+            throw new RuntimeException("http null entity error");
+        }
+        if (!entity.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("http code error " + entity.getStatusCode().value());
+        }
+        if (!entity.hasBody()) {
+            throw new RuntimeException("http body empty");
+        }
+        return entity;
     }
 
     public List<String> resolveLineList(List<String> lines, Function<String, String> sensitiveWordFunction) {
@@ -123,7 +158,7 @@ public class FictionUtils {
             }
             if (StringUtils.isBlank(line))
                 continue;
-            Pair<Boolean, String> detectNumberLine = detectNumberLine(line);
+            Pair<Boolean, String> detectNumberLine = detectIgnoreLine(line);
             // 是数字行
             if (detectNumberLine.getLeft()) {
                 // 需要保留文本才执行
@@ -219,7 +254,10 @@ public class FictionUtils {
         return ImmutablePair.of(requireSplit, list);
     }
 
-    public Pair<Boolean, String> detectNumberLine(String line) {
+    public Pair<Boolean, String> detectIgnoreLine(String line) {
+        if (line.startsWith("备案号:")) {
+            return ImmutablePair.of(true, null);
+        }
         Matcher matcher = numberLinePattern.matcher(line);
         if (matcher.matches()) {
             String group = matcher.group(1);
