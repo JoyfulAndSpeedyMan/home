@@ -29,9 +29,7 @@ public class DrawConfig implements Serializable {
     private int slot;
 
     public DrawConfig() {
-        width = 600;
-        height = 1500;
-        calc();
+        this(1000, 5000);
     }
 
     public DrawConfig(int width, int height) {

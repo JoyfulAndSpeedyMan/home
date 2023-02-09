@@ -19,4 +19,5 @@ public class WechatRecordGenerateConfigV2 {
 
     private DrawConfig drawConfig;
 
+    private OutConfig outConfig;
 }
