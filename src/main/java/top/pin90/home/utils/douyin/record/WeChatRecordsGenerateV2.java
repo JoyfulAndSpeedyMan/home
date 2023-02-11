@@ -17,12 +17,12 @@ import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
+import java.io.Serializable;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -58,6 +58,11 @@ public class WeChatRecordsGenerateV2 {
 
     private File sectionOutDir = null;
 
+    private OutConfig.SectionWriterControl sectionWriterControl = null;
+
+    private List<MsgSectionRecord> msgSectionRecords;
+
+    private List<Integer> pageEmpty;
     private boolean debug = false;
 
     public WeChatRecordsGenerateV2(WechatRecordGenerateConfigV2 configV2) {
@@ -79,6 +84,10 @@ public class WeChatRecordsGenerateV2 {
     }
 
     public void init() {
+        if (outConfig.isSectionOut()) {
+            msgSectionRecords = new ArrayList<>(200);
+            pageEmpty = new ArrayList<>(100);
+        }
         textFont = drawConfig.getTextFont();
         result = new BufferedImage(drawConfig.getWidth(), drawConfig.getHeight(), imgType);
         newImg();
@@ -100,7 +109,12 @@ public class WeChatRecordsGenerateV2 {
             }
         }
         save();
-        collectOne();
+        if (outConfig.isOutResult()) {
+            collectResult();
+        }
+        if (outConfig.isSectionOut() && sectionWriterControl != null) {
+            sectionWriterControl.afterRun();
+        }
 
     }
 
@@ -122,21 +136,28 @@ public class WeChatRecordsGenerateV2 {
         Font font = textFont.deriveFont(Font.PLAIN, (float) (drawConfig.getWidth() * 0.03));
         TextLayout textLayout = new TextLayout(time, font, graph2D.getFontRenderContext());
         double w = textLayout.getBounds().getWidth();
+        int baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
         float x = (float) (drawConfig.getWidth() / 2 - w / 2);
-        float y = baseWritePoint + drawConfig.getMarginTopWithPreRecord() + textLayout.getAscent();
+        float y = baseY + textLayout.getAscent();
         graph2D.setColor(new Color(88, 88, 88));
         textLayout.draw(graph2D, x, y);
-        baseWritePoint = (int) (y + textLayout.getDescent());
+        int postY = (int) (y + textLayout.getDescent());
+        postMsg(baseY, postY);
+        baseWritePoint = postY;
     }
 
     public void drawMeChatLine(String msg) {
         int baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
-        baseWritePoint = drawMeChatBox(baseY, msg);
+        int postY = drawMeChatBox(baseY, msg);
+        postMsg(baseY, postY);
+        baseWritePoint = postY;
     }
 
     public void drawOtherChatLine(int speakerId, String msg) {
         int baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
-        baseWritePoint = drawOtherChatBox(speakerId, baseY, msg);
+        int postY = drawOtherChatBox(speakerId, baseY, msg);
+        postMsg(baseY, postY);
+        baseWritePoint = postY;
     }
 
     private void drawMeAvatar(int baseY) {
@@ -217,8 +238,9 @@ public class WeChatRecordsGenerateV2 {
         int topAndBottomPadding = drawConfig.getChatMsgBoxPadding() << 1;
         int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
 //        height = Math.max(height, drawConfig.getAvatarSize());
-        // 下一页逻辑
-        if (baseY + height + topAndBottomPadding - drawConfig.getMarginTopWithPreRecord() >= drawConfig.getHeight()) {
+        // 下一页逻辑, baseY中已经包含了marginTopWithPreRecord，所以要减掉
+        if (baseY + height - drawConfig.getMarginTopWithPreRecord() >= drawConfig.getHeight()) {
+            pageEmpty.add(drawConfig.getHeight() - (baseY + drawConfig.getMarginTopWithPreRecord()));
             nextPage();
             baseY = baseWritePoint;
             height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
@@ -318,8 +340,12 @@ public class WeChatRecordsGenerateV2 {
             lastBaseWritePoints.add(baseWritePoint);
             if (outConfig.isOutMidImg()) {
                 makeSureOutMidImgDir();
-                ImageIO.write(img, "png",
-                        new File(outMidImgDir.getAbsoluteFile() + File.separator + (++curFileIndex) + ".png"));
+                String file = outMidImgDir.getAbsoluteFile() + File.separator + (++curFileIndex) + ".png";
+                try {
+                    ImageIO.write(img, "png", new File(file));
+                } catch (IOException e) {
+                    log.error("写入中间文件失败 {}", file, e);
+                }
             }
             graph2D.dispose();
         } catch (Exception e) {
@@ -327,7 +353,7 @@ public class WeChatRecordsGenerateV2 {
         }
     }
 
-    private void collectOne() {
+    private void collectResult() {
         log.info("图片生成完成，开始整合图片");
         int height = 0;
         int slot = drawConfig.getSlot();
@@ -368,8 +394,21 @@ public class WeChatRecordsGenerateV2 {
         }
     }
 
-    public void setDebug(boolean debug) {
-        this.debug = debug;
+    protected void postMsg(int baseY, int postY) {
+        int baseHeight = results.size() * drawConfig.getHeight();
+        msgSectionRecords.add(new MsgSectionRecord(baseHeight + baseY, baseHeight + postY));
+        writeSectionImg();
+    }
+
+    public void writeSectionImg() {
+        if (!outConfig.isSectionOut()) {
+            return;
+        }
+        makeSureSectionOutDir();
+        if (this.sectionWriterControl == null) {
+            sectionWriterControl = outConfig.sectionWriter(new SectionConsumer());
+        }
+        sectionWriterControl.incr();
     }
 
     private void makeSureBaseOutDir() {
@@ -420,4 +459,124 @@ public class WeChatRecordsGenerateV2 {
         }
     }
 
+    public void setDebug(boolean debug) {
+        this.debug = debug;
+    }
+
+    private class SectionConsumer implements Serializable, OutConfig.SectionWriter {
+
+        @Serial
+        private static final long serialVersionUID = 5478524866495837085L;
+
+        private OutConfig.Section section = null;
+
+        @Override
+        public void write(Integer curIndex, Integer sectionIndex, OutConfig.Section section) {
+            this.section = section;
+            String file = sectionOutDir.getAbsoluteFile() + File.separator + sectionIndex + ".png";
+            try {
+                BufferedImage result = collectImg();
+                ImageIO.write(result, "png", new File(file));
+            } catch (IOException e) {
+                log.error("写入段文件失败 {}", file, e);
+            }
+        }
+
+        private BufferedImage collectImg() {
+            final MsgSectionRecord startRecord = endOr(
+                    () -> msgSectionRecords.get(section.start()),
+                    () -> msgSectionRecords.get(section.start())
+            );
+            final int firstNum = startRecord.sectionStart() / drawConfig.getHeight();
+            final MsgSectionRecord endRecord = endOr(
+                    () -> msgSectionRecords.get(Math.min(msgSectionRecords.size() - 1, section.end())),
+                    () -> null
+            );
+            final int lastNum = endOr(
+                    () -> endRecord.sectionEnd() / drawConfig.getHeight(),
+                    () -> results.size() - 1
+            );
+            final int firstHeight;
+            if (!pageEmpty.isEmpty()) {
+                firstHeight = drawConfig.getHeight() - pageEmpty.get(firstNum) - startRecord.sectionStart;
+            } else {
+                firstHeight = 0;
+            }
+
+            final int lastHeight = endOr(
+                    () -> endRecord.sectionEnd,
+                    () -> lastBaseWritePoints.get(lastBaseWritePoints.size() - 1)
+            );
+
+            int midHeight = midHeightCalc(firstNum + 1, lastNum - 1);
+            if (midHeight != 0) {
+                midHeight += drawConfig.getMarginTopWithPreRecord();
+            }
+            int height = firstHeight
+                    + drawConfig.getMarginTopWithPreRecord()
+                    + midHeight
+                    + lastHeight
+                    + drawConfig.getMarginTopWithPreRecord();
+
+            BufferedImage result = new BufferedImage(drawConfig.getWidth(), height, imgType);
+            Graphics2D g = result.createGraphics();
+
+            int y = 0;
+            if (firstHeight != 0) {
+                g.drawImage(results.get(firstNum), 0, y, drawConfig.getWidth(), firstHeight,
+                        0, startRecord.sectionStart(), drawConfig.getWidth(), firstHeight, null);
+                y += firstHeight;
+                writeEmpty(g, y, drawConfig.getMarginTopWithPreRecord());
+                y += drawConfig.getMarginTopWithPreRecord();
+            }
+
+            y = writeMid(g, y, firstNum + 1, lastNum - 1);
+            y += drawConfig.getMarginTopWithPreRecord();
+            BufferedImage lastImg = lastNum != results.size() ? results.get(lastNum) : img;
+            g.drawImage(lastImg, 0, y, drawConfig.getWidth(), y + lastHeight,
+                    0, 0, drawConfig.getWidth(), lastHeight, null);
+            y += lastHeight;
+            writeEmpty(g, y, drawConfig.getMarginTopWithPreRecord());
+            g.dispose();
+            return result;
+        }
+
+        private int midHeightCalc(int firstNum, int lastNum) {
+            int h = 0;
+            while (firstNum <= lastNum) {
+                h += drawConfig.getHeight() - pageEmpty.get(firstNum);
+                h += drawConfig.getMarginTopWithPreRecord();
+                firstNum++;
+            }
+            if (h != 0)
+                h -= drawConfig.getMarginTopWithPreRecord();
+            return h;
+        }
+
+        private int writeMid(Graphics2D g, int y, int firstNum, int lastNum) {
+            for (int i = firstNum + 1; i <= lastNum; i++) {
+                int h = drawConfig.getHeight() - pageEmpty.get(i);
+                g.drawImage(results.get(i), 0, y, drawConfig.getWidth(), y + h,
+                        0, 0, drawConfig.getWidth(), h, null);
+                y += h;
+                writeEmpty(g, y, drawConfig.getMarginTopWithPreRecord());
+                y += drawConfig.getMarginTopWithPreRecord();
+            }
+            y -= drawConfig.getMarginTopWithPreRecord();
+            return y;
+        }
+
+        private void writeEmpty(Graphics2D g, int y, int h) {
+            g.setColor(themeConfig.getBackgroundColor());
+            g.fillRect(0, y, drawConfig.getWidth(), h);
+        }
+
+        private <T> T endOr(Supplier<T> limitEnd, Supplier<T> noLimitEnd) {
+            return section.end() != null ? limitEnd.get() : noLimitEnd.get();
+        }
+    }
+
+    private record MsgSectionRecord(int sectionStart, int sectionEnd) {
+
+    }
 }
