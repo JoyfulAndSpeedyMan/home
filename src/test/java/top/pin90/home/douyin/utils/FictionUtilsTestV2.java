@@ -11,6 +11,7 @@ import top.pin90.home.utils.douyin.FictionUtils;
 import top.pin90.home.utils.douyin.record.WeChatRecordsGenerateV2;
 import top.pin90.home.utils.douyin.record.config.DataConfig;
 import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfigV2;
+import top.pin90.home.utils.douyin.record.config.theme.ThemeConfig;
 
 import java.io.File;
 import java.io.IOException;
@@ -77,6 +78,7 @@ public class FictionUtilsTestV2 {
         }
         log.info("自定义文本完成, 共{}条，开始生成图片", allData.size());
         WechatRecordGenerateConfigV2 config = new WechatRecordGenerateConfigV2();
+        config.setThemeConfig(ThemeConfig.DEFAULT_CONFIG);
         config.setDataConfig(DataConfig.twoOf(allData.iterator(), null, null));
         WeChatRecordsGenerateV2 generate = new WeChatRecordsGenerateV2(config);
         generate.run();

@@ -5,6 +5,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import top.pin90.home.utils.douyin.record.config.*;
+import top.pin90.home.utils.douyin.record.config.theme.ThemeConfig;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -79,7 +80,7 @@ public class WeChatRecordsGenerateV2 {
         Objects.requireNonNull(configV2);
         Objects.requireNonNull(configV2.getDataConfig());
         dataConfig = configV2.getDataConfig();
-        themeConfig = configV2.getThemeConfig() == null ? new ThemeConfig() : configV2.getThemeConfig();
+        themeConfig = configV2.getThemeConfig() == null ? ThemeConfig.DEFAULT_CONFIG : configV2.getThemeConfig();
         drawConfig = configV2.getDrawConfig() == null ? new DrawConfig() : configV2.getDrawConfig();
         outConfig = configV2.getOutConfig() == null ? new OutConfig() : configV2.getOutConfig();
         this.configV2 = configV2;

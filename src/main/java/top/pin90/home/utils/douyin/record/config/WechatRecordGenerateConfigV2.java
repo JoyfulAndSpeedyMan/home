@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import top.pin90.home.utils.douyin.record.config.theme.ThemeConfig;
 
 @AllArgsConstructor
 @NoArgsConstructor
