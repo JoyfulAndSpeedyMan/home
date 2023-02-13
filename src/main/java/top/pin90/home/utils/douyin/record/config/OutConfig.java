@@ -123,7 +123,7 @@ public class OutConfig implements Serializable {
         @Override
         public Section next() {
             if (noUseSectionList) {
-                return new Section(curPage++ * pageSize, curPage * pageSize - 1);
+                return new Section(curPage++ * pageSize + 1, curPage * pageSize);
             } else {
                 return listIter.next();
             }
