@@ -76,13 +76,6 @@ public class DataConfig implements Serializable {
     @ToString
     public static class DateRecord {
 
-        public final static int TIME_LINE = 0;
-
-        public final static int ME = 1;
-
-        public final static int YOU = 2;
-
-
         /**
          * 发言者id
          */
@@ -130,12 +123,12 @@ public class DataConfig implements Serializable {
             throw new RuntimeException(e);
         }
 
-        DateRecord me1 = new DateRecord(WechatRecordGenerateConfig.DateRecord.ME, "你好");
-        DateRecord timeLine = new DateRecord(WechatRecordGenerateConfig.DateRecord.TIME_LINE, "10月31日 00:57");
-        DateRecord y1 = new DateRecord(WechatRecordGenerateConfig.DateRecord.YOU, "你好");
-        DateRecord y2 = new DateRecord(WechatRecordGenerateConfig.DateRecord.YOU, "查寝的人会用各种方式让你开门");
-        DateRecord y3 = new DateRecord(WechatRecordGenerateConfig.DateRecord.YOU, "不要开灯不要开窗不要拉开窗帘不要开灯不要开窗不要拉开窗帘");
-        DateRecord me2 = new DateRecord(WechatRecordGenerateConfig.DateRecord.ME, "卫生间伐uebfueyw瑟瑟发抖发·17");
+        DateRecord me1 = new DateRecord(ME, "你好");
+        DateRecord timeLine = new DateRecord(TIME_LINE, "10月31日 00:57");
+        DateRecord y1 = new DateRecord(YOU, "你好");
+        DateRecord y2 = new DateRecord(YOU, "查寝的人会用各种方式让你开门");
+        DateRecord y3 = new DateRecord(YOU, "不要开灯不要开窗不要拉开窗帘不要开灯不要开窗不要拉开窗帘");
+        DateRecord me2 = new DateRecord(ME, "卫生间伐uebfueyw瑟瑟发抖发·17");
         EXAMPLE_DATA_ITER = List.of(me1, timeLine, y1, y2, y3, me2).iterator();
     }
 }

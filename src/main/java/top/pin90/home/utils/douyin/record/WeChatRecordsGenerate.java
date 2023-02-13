@@ -4,20 +4,31 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig;
+import top.pin90.home.utils.douyin.record.config.*;
+import top.pin90.home.utils.douyin.record.config.theme.ThemeConfig;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.font.*;
+import java.awt.font.FontRenderContext;
+import java.awt.font.LineBreakMeasurer;
+import java.awt.font.TextAttribute;
+import java.awt.font.TextLayout;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
+import java.io.Serializable;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
-import java.util.*;
 import java.util.List;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Slf4j
 public class WeChatRecordsGenerate {
@@ -33,41 +44,63 @@ public class WeChatRecordsGenerate {
     private final List<Integer> lastBaseWritePoints = new LinkedList<>();
 
     private BufferedImage result;
+    private final WechatRecordGenerateConfig configV2;
 
-    private final WechatRecordGenerateConfig config;
+    private final DataConfig dataConfig;
 
-    private final WechatRecordGenerateConfig.DrawConfig drawConfig;
+    private final ThemeConfig themeConfig;
+
+    private final DrawConfig drawConfig;
+
+    private OutConfig outConfig;
+
+    private File baseOutDir = null;
+
+    private File resultFile = null;
+
+    private File outMidImgDir = null;
+
+    private File sectionOutDir = null;
+
+    private OutConfig.SectionWriterControl sectionWriterControl = null;
+
+    private List<MsgSectionRecord> msgSectionRecords;
+
+    private List<Integer> pageEmpty;
+
+    private static ExecutorService ioThreadPool = Executors.newVirtualThreadPerTaskExecutor();
+
+    private AtomicInteger ioWorkerCounter = new AtomicInteger(0);
 
     private boolean debug = false;
 
-    public WeChatRecordsGenerate(WechatRecordGenerateConfig config) {
-        Objects.requireNonNull(config);
-        Objects.requireNonNull(config.getDataConfig());
-        Objects.requireNonNull(config.getBackgroundConfig());
-        Objects.requireNonNull(config.getMeChatConfig());
-        Objects.requireNonNull(config.getYouChatConfig());
-        Objects.requireNonNull(config.getOutConfig());
-        Objects.requireNonNull(config.getDrawConfig());
-        drawConfig = config.getDrawConfig();
-        this.config = config;
+    private boolean awaitIO = true;
+
+    public WeChatRecordsGenerate(WechatRecordGenerateConfig configV2) {
+        Objects.requireNonNull(configV2);
+        Objects.requireNonNull(configV2.getDataConfig());
+        dataConfig = configV2.getDataConfig();
+        themeConfig = configV2.getThemeConfig() == null ? ThemeConfig.DEFAULT_CONFIG : configV2.getThemeConfig();
+        drawConfig = configV2.getDrawConfig() == null ? new DrawConfig() : configV2.getDrawConfig();
+        outConfig = configV2.getOutConfig() == null ? new OutConfig() : configV2.getOutConfig();
+        this.configV2 = configV2;
     }
 
     public static void main(String[] args) throws Exception {
-        WechatRecordGenerateConfig config = WechatRecordGenerateConfig.darkDefaultConfig();
+        WechatRecordGenerateConfig config = new WechatRecordGenerateConfig();
+        config.setDataConfig(DataConfig.twoOf(DataConfig.getExampleDataIter(), null, null));
         WeChatRecordsGenerate generate = new WeChatRecordsGenerate(config);
 //        generate.setDebug(true);
         generate.run();
     }
 
     public void init() {
-        WechatRecordGenerateConfig.DrawConfig drawConfig = config.getDrawConfig();
-        textFont = config.getDrawConfig().getTextFont();
-        if (StringUtils.isNotBlank(config.getOutConfig().getOutAllImgDir())) {
-            File file = new File(config.getOutConfig().getOutAllImgDir());
-            //noinspection ResultOfMethodCallIgnored
-            file.mkdirs();
+        if (outConfig.isSectionOut()) {
+            msgSectionRecords = new ArrayList<>(200);
+            pageEmpty = new ArrayList<>(100);
         }
-        result = new BufferedImage(drawConfig.getWidth(), config.getDrawConfig().getHeight(), imgType);
+        textFont = drawConfig.getTextFont();
+        result = new BufferedImage(drawConfig.getWidth(), drawConfig.getHeight(), imgType);
         newImg();
     }
 
@@ -75,21 +108,27 @@ public class WeChatRecordsGenerate {
         this.init();
         fillBackground();
         setStartLineAt();
-        WechatRecordGenerateConfig.DataConfig dataConfig = config.getDataConfig();
-        Iterator<WechatRecordGenerateConfig.DateRecord> dataIter = dataConfig.getDataIter();
+        Iterator<DataConfig.DateRecord> dataIter = dataConfig.getDataIter();
         while (dataIter.hasNext()) {
-            WechatRecordGenerateConfig.DateRecord next = dataIter.next();
-            if (next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.YOU) {
-                drawYouChatLine(next.getMsg());
-            } else if (next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.ME) {
+            DataConfig.DateRecord next = dataIter.next();
+            if (next.getSpeakerId() == DataConfig.DateRecord.ME) {
                 drawMeChatLine(next.getMsg());
-            } else if (next.getSpeakerId() == WechatRecordGenerateConfig.DateRecord.TIME_LINE) {
+            } else if (next.getSpeakerId() == DataConfig.DateRecord.TIME_LINE) {
                 drawTimeLine(next.getMsg());
+            } else {
+                drawOtherChatLine(next.getSpeakerId(), next.getMsg());
             }
         }
         save();
-        collectOne();
-
+        if (outConfig.isOutResult()) {
+            collectResult();
+        }
+        if (outConfig.isSectionOut() && sectionWriterControl != null) {
+            sectionWriterControl.afterRun();
+        }
+        if (awaitIO) {
+            awaitIoComplete();
+        }
     }
 
     private void setStartLineAt() {
@@ -102,44 +141,64 @@ public class WeChatRecordsGenerate {
 
 
     public void fillBackground() {
-        graph2D.setColor(config.getBackgroundConfig().getBackgroundColor());
-        graph2D.fillRect(0, 0, config.getDrawConfig().getWidth(), config.getDrawConfig().getHeight());
+        graph2D.setColor(themeConfig.getBackgroundColor());
+        graph2D.fillRect(0, 0, drawConfig.getWidth(), drawConfig.getHeight());
     }
 
     public void drawTimeLine(String time) {
-        Font font = textFont.deriveFont(Font.PLAIN, (float) (config.getDrawConfig().getWidth() * 0.03));
+        Font font = textFont.deriveFont(Font.PLAIN, (float) (drawConfig.getWidth() * 0.03));
         TextLayout textLayout = new TextLayout(time, font, graph2D.getFontRenderContext());
         double w = textLayout.getBounds().getWidth();
-        float x = (float) (config.getDrawConfig().getWidth() / 2 - w / 2);
-        float y = baseWritePoint + drawConfig.getMarginTopWithPreRecord() + textLayout.getAscent();
+        int baseY = nextBaseY();
+        float x = (float) (drawConfig.getWidth() / 2 - w / 2);
+        float y = baseY + textLayout.getAscent();
         graph2D.setColor(new Color(88, 88, 88));
         textLayout.draw(graph2D, x, y);
-        baseWritePoint = (int) (y + textLayout.getDescent());
+        int postY = (int) (y + textLayout.getDescent());
+        postMsg(baseY, postY);
+        baseWritePoint = postY;
     }
 
     public void drawMeChatLine(String msg) {
-        int baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
-        baseWritePoint = drawMeChatBox(baseY, msg);
+        int baseY = nextBaseY();
+        Pair<Integer, Integer> result = drawMeChatBox(baseY, msg);
+        int postY = result.getKey() + result.getRight();
+        postMsg(result.getKey(), postY);
+        baseWritePoint = postY;
     }
 
-    public void drawYouChatLine(String msg) {
+    public void drawOtherChatLine(int speakerId, String msg) {
+        int baseY = nextBaseY();
+        Pair<Integer, Integer> result = drawOtherChatBox(speakerId, baseY, msg);
+        int postY = result.getKey() + result.getRight();
+        postMsg(result.getKey(), postY);
+        baseWritePoint = postY;
+    }
+
+    private int nextBaseY() {
         int baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
-        baseWritePoint = drawYouChatBox(baseY, msg);
+        if (baseY > drawConfig.getHeight()) {
+            nextPage();
+            baseY = baseWritePoint + drawConfig.getMarginTopWithPreRecord();
+        }
+        return baseY;
     }
 
     private void drawMeAvatar(int baseY) {
-        BufferedImage meAvatar = roundImg(config.getMeChatConfig().getAvatar(), drawConfig.getAvatarSize(), (int) (config.getDrawConfig().getWidth() * 0.016));
+        BufferedImage meAvatar = roundImg(dataConfig.getMyPersonInfo().getAvatar(), drawConfig.getAvatarSize(), (int) (drawConfig.getWidth() * 0.016));
         try {
             ImageIO.write(meAvatar, "png", new File("target/me.png"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        graph2D.drawImage(meAvatar, config.getDrawConfig().getWidth() - drawConfig.getAvatarSize() - drawConfig.getAvatarMargin(), baseY, null);
+        graph2D.drawImage(meAvatar, drawConfig.getWidth() - drawConfig.getAvatarSize() - drawConfig.getAvatarMargin(), baseY, null);
 
     }
 
-    private void drawYouAvatar(int baseY) {
-        BufferedImage youAvatar = roundImg(config.getYouChatConfig().getAvatar(), drawConfig.getAvatarSize(), (int) (config.getDrawConfig().getWidth() * 0.016));
+    private void drawYouAvatar(int speakerId, int baseY) {
+        DataConfig.PersonInfo personInfo = dataConfig.getPersonInfo(speakerId);
+        Objects.requireNonNull(personInfo, "speakerId: " + speakerId + " 不存在");
+        BufferedImage youAvatar = roundImg(personInfo.getAvatar(), drawConfig.getAvatarSize(), (int) (drawConfig.getWidth() * 0.016));
         try {
             ImageIO.write(youAvatar, "png", new File("target/you.png"));
         } catch (IOException e) {
@@ -161,36 +220,36 @@ public class WeChatRecordsGenerate {
         return targetImg;
     }
 
-    public int drawYouChatBox(int baseY, String msg) {
+    public Pair<Integer, Integer> drawOtherChatBox(int speakerId, int baseY, String msg) {
         double w = caleWidth(msg);
         double textAreaWidth = w - 2 * drawConfig.getChatMsgBoxPadding();
         int x = drawConfig.getTriangleMarginLeft() + drawConfig.getTagD();
         Pair<Integer, Integer> pair = caleHeightAndNextPage(msg, x, baseY, textAreaWidth);
         baseY = pair.getKey();
         int height = pair.getRight();
-        graph2D.setColor(config.getYouChatConfig().getBoxColor());
+        graph2D.setColor(themeConfig.getOtherBoxColor());
         drawYouChatTag(baseY);
         graph2D.fill(new RoundRectangle2D.Double(x, baseY, w, height, drawConfig.getChatBoxRadius(), drawConfig.getChatBoxRadius()));
-        graph2D.setColor(config.getYouChatConfig().getTextColor());
+        graph2D.setColor(themeConfig.getOtherTextColor());
         drawMsg(x, baseY, textAreaWidth, msg, true);
-        drawYouAvatar(baseY);
-        return baseY + height;
+        drawYouAvatar(speakerId, baseY);
+        return ImmutablePair.of(baseY, height);
     }
 
-    public int drawMeChatBox(int baseY, String msg) {
+    public Pair<Integer, Integer> drawMeChatBox(int baseY, String msg) {
         double w = caleWidth(msg);
         double textAreaWidth = w - 2 * drawConfig.getChatMsgBoxPadding();
-        int x = (int) (config.getDrawConfig().getWidth() - (w + drawConfig.getTriangleMarginLeft() + drawConfig.getTagD()));
+        int x = (int) (drawConfig.getWidth() - (w + drawConfig.getTriangleMarginLeft() + drawConfig.getTagD()));
         Pair<Integer, Integer> pair = caleHeightAndNextPage(msg, x, baseY, textAreaWidth);
         baseY = pair.getKey();
         int height = pair.getRight();
-        graph2D.setColor(config.getMeChatConfig().getBoxColor());
+        graph2D.setColor(themeConfig.getMeBoxColor());
         drawMeChatTag(baseY);
         graph2D.fill(new RoundRectangle2D.Double(x, baseY, w, height, drawConfig.getChatBoxRadius(), drawConfig.getChatBoxRadius()));
-        graph2D.setColor(config.getMeChatConfig().getTextColor());
+        graph2D.setColor(themeConfig.getMeTextColor());
         drawMsg(x, baseY, textAreaWidth, msg, true);
         drawMeAvatar(baseY);
-        return baseY + height;
+        return ImmutablePair.of(baseY, height);
     }
 
     private double caleWidth(String msg) {
@@ -203,8 +262,9 @@ public class WeChatRecordsGenerate {
         int topAndBottomPadding = drawConfig.getChatMsgBoxPadding() << 1;
         int height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
 //        height = Math.max(height, drawConfig.getAvatarSize());
-        // 下一页逻辑
-        if (baseY + height + topAndBottomPadding - drawConfig.getMarginTopWithPreRecord() >= drawConfig.getHeight()) {
+        // 下一页逻辑, baseY中已经包含了marginTopWithPreRecord，所以要减掉
+        if (baseY + height + drawConfig.getMarginTopWithPreRecord() >= drawConfig.getHeight()) {
+            pageEmpty.add(drawConfig.getHeight() - baseY);
             nextPage();
             baseY = baseWritePoint;
             height = drawMsg(x, baseY, textAreaWidth, msg, false) + topAndBottomPadding;
@@ -224,7 +284,7 @@ public class WeChatRecordsGenerate {
 
     private void drawMeChatTag(int baseY) {
         int midY = baseY + drawConfig.getAvatarSize() / 2;
-        int x = config.getDrawConfig().getWidth() - (drawConfig.getTriangleMarginLeft() + drawConfig.getTagD());
+        int x = drawConfig.getWidth() - (drawConfig.getTriangleMarginLeft() + drawConfig.getTagD());
         graph2D.fillPolygon(
                 new int[]{x + 14, x, x},
                 new int[]{midY, midY - drawConfig.getTagD(), midY + drawConfig.getTagD()},
@@ -302,10 +362,16 @@ public class WeChatRecordsGenerate {
         try {
             results.add(img);
             lastBaseWritePoints.add(baseWritePoint);
-            if (config.getOutConfig().isOutputMiddleImg()) {
-//                graph2D.setColor(new Color(0, 0, 0, 20));
-//                graph2D.fillRect(0, 0, img.getWidth(), baseWritePoint);
-                ImageIO.write(img, "png", new File(config.getOutConfig().getOutAllImgDir() + File.separator + (++curFileIndex) + ".png"));
+            if (outConfig.isOutMidImg()) {
+                addIoWorker(() -> {
+                    makeSureOutMidImgDir();
+                    String file = outMidImgDir.getAbsoluteFile() + File.separator + (++curFileIndex) + ".png";
+                    try {
+                        ImageIO.write(img, "png", new File(file));
+                    } catch (IOException e) {
+                        log.error("写入中间文件失败 {}", file, e);
+                    }
+                });
             }
             graph2D.dispose();
         } catch (Exception e) {
@@ -313,7 +379,7 @@ public class WeChatRecordsGenerate {
         }
     }
 
-    private void collectOne() {
+    private void collectResult() {
         log.info("图片生成完成，开始整合图片");
         int height = 0;
         int slot = drawConfig.getSlot();
@@ -322,7 +388,7 @@ public class WeChatRecordsGenerate {
             height += slot;
         }
         height -= slot;
-        BufferedImage result = new BufferedImage(config.getDrawConfig().getWidth(), height, imgType);
+        BufferedImage result = new BufferedImage(drawConfig.getWidth(), height, imgType);
         Graphics2D g = result.createGraphics();
         int y = 0;
         Color slotColor = new Color(211, 211, 211);
@@ -331,7 +397,7 @@ public class WeChatRecordsGenerate {
             int h = lastBaseWritePoints.get(i);
             g.drawImage(img, 0, y, img.getWidth(), y + h, 0, 0, img.getWidth(), h, null);
             y += h;
-            g.setColor(config.getBackgroundConfig().getBackgroundColor());
+            g.setColor(themeConfig.getBackgroundColor());
             g.fillRect(0, y, img.getWidth(), drawConfig.getMarginTopWithPreRecord());
             y += drawConfig.getMarginTopWithPreRecord();
             if (i != results.size() - 1 && slot > 0) {
@@ -342,26 +408,263 @@ public class WeChatRecordsGenerate {
         }
         this.result = result;
         log.info("图片整合完成，准备写入文件");
-        try {
-            if (StringUtils.isNotBlank(config.getOutConfig().getOutFile())) {
-//                File file = new File(classpath + File.separator + config.getOutConfig().getOutFile());
-                File file = new File(config.getOutConfig().getOutFile());
-                log.info("文件将写入到 {}", file.getAbsolutePath());
-                ImageIO.write(result, config.getOutConfig().getFileFormat(), file);
+        addIoWorker(() -> {
+            try {
+                makeSureResultFile();
+                String outPath = resultFile.getAbsolutePath();
+                log.info("文件将写入到 {}", outPath);
+                String fileFormat = outPath.substring(outPath.lastIndexOf('.') + 1);
+                ImageIO.write(result, fileFormat, resultFile);
                 log.info("文件将写入完成");
-            } else {
-                if (StringUtils.isBlank(config.getOutConfig().getOutAllImgDir())) {
-                    throw new RuntimeException("没有输出位置");
-                }
-                File file = new File(config.getOutConfig().getOutAllImgDir() + File.separator + "result.png");
-                ImageIO.write(result, "png", file);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        });
+    }
+
+    protected void postMsg(int baseY, int postY) {
+        int baseHeight = results.size() * drawConfig.getHeight();
+        msgSectionRecords.add(new MsgSectionRecord(baseHeight + baseY, baseHeight + postY));
+        writeSectionImg();
+    }
+
+    public void writeSectionImg() {
+        if (!outConfig.isSectionOut()) {
+            return;
+        }
+        makeSureSectionOutDir();
+        if (this.sectionWriterControl == null) {
+            sectionWriterControl = outConfig.sectionWriter(new SectionConsumer());
+        }
+        sectionWriterControl.incr();
+    }
+
+    private void makeSureBaseOutDir() {
+        if (baseOutDir != null)
+            return;
+        if (StringUtils.isNotBlank(outConfig.getBaseOutDir())) {
+            baseOutDir = new File(outConfig.getBaseOutDir());
+        } else {
+            baseOutDir = new File("chatOut");
+        }
+    }
+
+    private void makeSureResultFile() {
+        if (resultFile != null)
+            return;
+        makeSureFile(outConfig::getResultFile, () -> OutConfig.DEFAULT_OUT_FILE, (file -> resultFile = file));
+    }
+
+    private void makeSureOutMidImgDir() {
+        if (outMidImgDir != null)
+            return;
+        makeSureFile(outConfig::getOutMidImgDir, () -> OutConfig.DEFAULT_MID_IMG_OUT_DIR, (file -> outMidImgDir = file));
+        //noinspection ResultOfMethodCallIgnored
+        outMidImgDir.mkdirs();
+    }
+
+    private void makeSureSectionOutDir() {
+        if (sectionOutDir != null)
+            return;
+        makeSureFile(outConfig::getSectionOutDir, () -> OutConfig.DEFAULT_SECTION_OUT_DIR, (file -> sectionOutDir = file));
+        //noinspection ResultOfMethodCallIgnored
+        sectionOutDir.mkdirs();
+    }
+
+    private void makeSureFile(Supplier<String> filePath, Supplier<String> defaultFilePath, Consumer<File> setFile) {
+        String path = filePath.get();
+        if (StringUtils.isNotBlank(path)) {
+            File file = new File(path);
+            if (file.isAbsolute()) {
+                setFile.accept(file);
+            } else {
+                makeSureBaseOutDir();
+                setFile.accept(new File(baseOutDir.getAbsoluteFile() + File.separator + outConfig.getResultFile()));
+            }
+        } else {
+            makeSureBaseOutDir();
+            setFile.accept(new File(baseOutDir.getAbsoluteFile() + File.separator + defaultFilePath.get()));
         }
     }
 
     public void setDebug(boolean debug) {
         this.debug = debug;
+    }
+
+    private class SectionConsumer implements Serializable, OutConfig.SectionWriter {
+
+        @Serial
+        private static final long serialVersionUID = 5478524866495837085L;
+
+        private OutConfig.Section section = null;
+
+        @Override
+        public void write(Integer curIndex, Integer sectionIndex, OutConfig.Section section) {
+            this.section = section;
+            String file = sectionOutDir.getAbsoluteFile() + File.separator + sectionIndex + ".png";
+            addIoWorker(() -> {
+                try {
+                    BufferedImage result = collectImg();
+                    ImageIO.write(result, "png", new File(file));
+                } catch (IOException e) {
+                    log.error("写入段文件失败 {}", file, e);
+                }
+            });
+
+        }
+
+        private BufferedImage collectImg() {
+            final MsgSectionRecord startRecord = msgSectionRecords.get(section.start() - 1);
+            final int firstNum = startRecord.sectionStart() / drawConfig.getHeight();
+            final MsgSectionRecord endRecord = endOr(
+                    () -> msgSectionRecords.get(Math.min(msgSectionRecords.size() - 1, section.end() - 1)),
+                    () -> null
+            );
+            final int lastNum = endOr(
+                    () -> endRecord.sectionEnd() / drawConfig.getHeight(),
+                    () -> results.size() - 1
+            );
+            final int firstHeight;
+            if (firstNum == lastNum) {
+                int baseHeight = firstNum * drawConfig.getHeight();
+                int start = startRecord.sectionStart - baseHeight;
+                int end = endOr(
+                        () -> endRecord.sectionEnd - baseHeight,
+                        () -> baseWritePoint
+                );
+                int h = end - start;
+                BufferedImage result = new BufferedImage(drawConfig.getWidth(), h, imgType);
+                Graphics2D g = result.createGraphics();
+                g.drawImage(img,
+                        0, 0, drawConfig.getWidth(), h,
+                        0, start, drawConfig.getWidth(), end, null);
+                g.dispose();
+                return result;
+            }
+            int fi = startRecord.sectionStart - firstNum * drawConfig.getHeight();
+            if (!pageEmpty.isEmpty()) {
+                firstHeight = drawConfig.getHeight() - pageEmpty.get(firstNum) - (fi);
+            } else {
+                firstHeight = 0;
+            }
+
+            final int lastHeight = endOr(
+                    () -> endRecord.sectionEnd - lastNum * drawConfig.getHeight(),
+                    () -> lastBaseWritePoints.get(lastBaseWritePoints.size() - 1)
+            );
+
+            int midHeight = midHeightCalc(firstNum + 1, lastNum - 1);
+            if (midHeight != 0) {
+                midHeight += drawConfig.getMarginTopWithPreRecord();
+            }
+            int height = firstHeight
+                    + drawConfig.getMarginTopWithPreRecord()
+                    + midHeight
+                    + lastHeight
+                    + drawConfig.getMarginTopWithPreRecord();
+
+            BufferedImage result = new BufferedImage(drawConfig.getWidth(), height, imgType);
+            Graphics2D g = result.createGraphics();
+
+            int y = 0;
+            if (firstHeight != 0) {
+                g.drawImage(results.get(firstNum),
+                        0, y, drawConfig.getWidth(), y + firstHeight,
+                        0, fi, drawConfig.getWidth(), fi + firstHeight,
+                        null);
+                y += firstHeight;
+                writeEmpty(g, y, drawConfig.getMarginTopWithPreRecord());
+                y += drawConfig.getMarginTopWithPreRecord();
+            }
+
+            y = writeMid(g, y, firstNum + 1, lastNum - 1);
+            y += drawConfig.getMarginTopWithPreRecord();
+
+            BufferedImage lastImg = lastNum != results.size() ? results.get(lastNum) : img;
+            g.drawImage(lastImg, 0, y, drawConfig.getWidth(), y + lastHeight,
+                    0, 0, drawConfig.getWidth(), lastHeight, null);
+            y += lastHeight;
+            writeEmpty(g, y, drawConfig.getMarginTopWithPreRecord());
+            g.dispose();
+            return result;
+        }
+
+        private int midHeightCalc(int firstNum, int lastNum) {
+            int h = 0;
+            while (firstNum <= lastNum) {
+                h += drawConfig.getHeight() - pageEmpty.get(firstNum);
+                h += drawConfig.getMarginTopWithPreRecord();
+                firstNum++;
+            }
+            if (h != 0)
+                h -= drawConfig.getMarginTopWithPreRecord();
+            return h;
+        }
+
+        private int writeMid(Graphics2D g, int y, int firstNum, int lastNum) {
+            for (int i = firstNum; i <= lastNum; i++) {
+                int h = drawConfig.getHeight() - pageEmpty.get(i);
+                g.drawImage(results.get(i), 0, y, drawConfig.getWidth(), y + h,
+                        0, 0, drawConfig.getWidth(), h, null);
+                y += h;
+                writeEmpty(g, y, drawConfig.getMarginTopWithPreRecord());
+                y += drawConfig.getMarginTopWithPreRecord();
+            }
+            y -= drawConfig.getMarginTopWithPreRecord();
+            return y;
+        }
+
+        private void writeEmpty(Graphics2D g, int y, int h) {
+            g.setColor(themeConfig.getBackgroundColor());
+            g.fillRect(0, y, drawConfig.getWidth(), h);
+        }
+
+        private <T> T endOr(Supplier<T> limitEnd, Supplier<T> noLimitEnd) {
+            return section.end() != null ? limitEnd.get() : noLimitEnd.get();
+        }
+    }
+
+    private class IOWorker implements Runnable {
+
+        private Runnable run;
+
+        public IOWorker(Runnable run) {
+            this.run = run;
+        }
+
+        @Override
+        public void run() {
+            ioWorkerCounter.incrementAndGet();
+            run.run();
+            ioWorkerCounter.decrementAndGet();
+        }
+    }
+
+    private IOWorker addIoWorker(Runnable run) {
+        IOWorker ioWorker = new IOWorker(run);
+        ioThreadPool.execute(ioWorker);
+        return ioWorker;
+    }
+
+    private void awaitIoComplete() {
+        Object lock = new Object();
+        while (true) {
+            //noinspection SynchronizationOnLocalVariableOrMethodParameter
+            synchronized (lock) {
+                if (ioWorkerCounter.get() != 0) {
+                    try {
+                        lock.wait(200);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    return;
+                }
+            }
+        }
+    }
+
+    private record MsgSectionRecord(int sectionStart, int sectionEnd) {
+
     }
 }

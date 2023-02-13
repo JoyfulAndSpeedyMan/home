@@ -9,15 +9,14 @@ import top.pin90.home.common.utils.SensitiveWordUtils;
 import top.pin90.home.common.utils.file.ClasspathUtils;
 import top.pin90.home.utils.douyin.FictionUtils;
 import top.pin90.home.utils.douyin.record.WeChatRecordsGenerate;
+import top.pin90.home.utils.douyin.record.config.DataConfig;
 import top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig;
+import top.pin90.home.utils.douyin.record.config.theme.ThemeConfig;
 
-import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import static top.pin90.home.utils.douyin.record.config.WechatRecordGenerateConfig.DateRecord.*;
 
 @Slf4j
 public class FictionUtilsTest {
@@ -69,32 +68,19 @@ public class FictionUtilsTest {
                 SensitiveWordUtils::replaceSensitiveWordToPinyin, start, limit);
         log.info("文本处理完成, 共{}条，start {} , limit  {}，开始自定义文本", resultList.size(), start, limit);
 
-
-        WechatRecordGenerateConfig defaultConfig = WechatRecordGenerateConfig.defaultConfig();
-
-        List<WechatRecordGenerateConfig.DateRecord> allData = new ArrayList<>();
-        allData.add(new WechatRecordGenerateConfig.DateRecord(ME, "男朋友有哪些令人窒息的操作"));
-        allData.add(new WechatRecordGenerateConfig.DateRecord(TIME_LINE, "2月8日 10:23"));
+        List<DataConfig.DateRecord> allData = new ArrayList<>();
+        allData.add(new DataConfig.DateRecord(DataConfig.ME, "男朋友有哪些令人窒息的操作"));
+        allData.add(new DataConfig.DateRecord(DataConfig.TIME_LINE, "2月8日 10:23"));
         for (String msg : resultList) {
-            allData.add(new WechatRecordGenerateConfig.DateRecord(YOU, msg));
+            allData.add(new DataConfig.DateRecord(DataConfig.YOU, msg));
         }
         log.info("自定义文本完成, 共{}条，开始生成图片", allData.size());
-        defaultConfig.getDataConfig().setDataIter(allData.iterator());
 
-        String baseDir = "D:\\workspace\\知乎";
-        String meAvatar = "me.jpg";
-        String youAvatar = "you.jpg";
-        String chatRecord = "聊天记录.png";
-        WechatRecordGenerateConfig.ChatConfig meChatConfig = defaultConfig.getMeChatConfig();
-        meChatConfig.setAvatar(ImageIO.read(new File(baseDir + File.separator + meAvatar)));
-        WechatRecordGenerateConfig.ChatConfig youChatConfig = defaultConfig.getYouChatConfig();
-        youChatConfig.setAvatar(ImageIO.read(new File(baseDir + File.separator + youAvatar)));
 
-        WechatRecordGenerateConfig.OutConfig outConfig = defaultConfig.getOutConfig();
-        outConfig.setOutFile(baseDir + File.separator + chatRecord);
-        outConfig.setOutAllImgDir(baseDir + File.separator + "allImgs");
-        outConfig.setOutputMiddleImg(true);
-        WeChatRecordsGenerate generate = new WeChatRecordsGenerate(defaultConfig);
+        WechatRecordGenerateConfig config = new WechatRecordGenerateConfig();
+        config.setThemeConfig(ThemeConfig.DEFAULT_CONFIG);
+        config.setDataConfig(DataConfig.twoOf(allData.iterator(), null, null));
+        WeChatRecordsGenerate generate = new WeChatRecordsGenerate(config);
         generate.run();
         log.info("图片生成完成！");
     }
