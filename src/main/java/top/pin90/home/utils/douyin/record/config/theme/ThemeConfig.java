@@ -18,21 +18,21 @@ public class ThemeConfig {
     public final static ThemeConfig DARK_CONFIG = new ImmutableDelegateThemeConfig(darkConfig());
 
 
-    private Color backgroundColor = new Color(237, 237, 237);
+    private Color backgroundColor;
 
-    private Color meBoxColor = new Color(169, 234, 122);
+    private Color meBoxColor;
 
-    private Color meTextColor = new Color(16, 23, 11);
+    private Color meTextColor;
 
-    private Color otherBoxColor = new Color(255, 255, 255);
+    private Color otherBoxColor;
 
-    private Color otherTextColor = new Color(26, 26, 26);
+    private Color otherTextColor;
 
-    private Color timeLineBoxColor = new Color(255, 255, 255, 10);
+    private Color timeLineBoxColor;
 
-    private Color timeLineTextColor = new Color(88, 88, 88);
+    private Color timeLineTextColor;
 
-    private Color slotColor = new Color(211, 211, 211);
+    private Color slotColor;
 
     ThemeConfig() {}
 

@@ -111,9 +111,9 @@ public class WeChatRecordsGenerate {
         Iterator<DataConfig.DateRecord> dataIter = dataConfig.getDataIter();
         while (dataIter.hasNext()) {
             DataConfig.DateRecord next = dataIter.next();
-            if (next.getSpeakerId() == DataConfig.DateRecord.ME) {
+            if (next.getSpeakerId() == DataConfig.ME) {
                 drawMeChatLine(next.getMsg());
-            } else if (next.getSpeakerId() == DataConfig.DateRecord.TIME_LINE) {
+            } else if (next.getSpeakerId() == DataConfig.TIME_LINE) {
                 drawTimeLine(next.getMsg());
             } else {
                 drawOtherChatLine(next.getSpeakerId(), next.getMsg());
@@ -152,7 +152,7 @@ public class WeChatRecordsGenerate {
         int baseY = nextBaseY();
         float x = (float) (drawConfig.getWidth() / 2 - w / 2);
         float y = baseY + textLayout.getAscent();
-        graph2D.setColor(new Color(88, 88, 88));
+        graph2D.setColor(themeConfig.getTimeLineTextColor());
         textLayout.draw(graph2D, x, y);
         int postY = (int) (y + textLayout.getDescent());
         postMsg(baseY, postY);
